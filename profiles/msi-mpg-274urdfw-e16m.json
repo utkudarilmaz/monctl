@@ -1,0 +1,11 @@
+{
+  "name": "MSI MPG 274URDFW E16M",
+  "match": {
+    "manufacturer": "MSI",
+    "productCode": "0x3cf0"
+  },
+  "inputs": [
+    { "id": "dp", "label": "DisplayPort", "write": 5, "read": 7 },
+    { "id": "usbc", "label": "USB-C", "write": 8, "read": 8 }
+  ]
+}
