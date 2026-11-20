@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -109,7 +108,7 @@ func Load(sources ...fs.FS) ([]Profile, error) {
 			}
 			p, err := Parse(data)
 			if err != nil {
-				return nil, fmt.Errorf("profile %s: %w", path.Base(name), err)
+				return nil, fmt.Errorf("profile %s: %w", name, err)
 			}
 			all = append(all, p)
 		}
