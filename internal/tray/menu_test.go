@@ -149,6 +149,18 @@ func TestRefresher(t *testing.T) {
 			wantReport: []string{"boom"},
 		},
 		{
+			name:       "a monitor showing another computer is not an error",
+			stateErrs:  []error{fmt.Errorf("get vcp: %w", ddc.ErrNoReply), fmt.Errorf("get vcp: %w", ddc.ErrNoReply)},
+			failures:   []error{nil, fmt.Errorf("set vcp: %w", ddc.ErrNoReply)},
+			wantStatus: "Monitor is showing another computer",
+		},
+		{
+			name:       "no monitor is not an error",
+			stateErrs:  []error{ErrNoMonitor},
+			failures:   []error{ErrNoMonitor},
+			wantStatus: "No external monitor found",
+		},
+		{
 			name:       "read error is reported once",
 			stateErrs:  []error{boom, boom, boom},
 			failures:   []error{nil, nil, nil},
@@ -163,18 +175,17 @@ func TestRefresher(t *testing.T) {
 			wantReport: []string{"boom", "boom"},
 		},
 		{
-			name:       "monitor lost during a change is reported once",
+			name:       "monitor lost during a change is shown, not reported",
 			stateErrs:  []error{nil, ErrNoMonitor},
 			failures:   []error{nil, ErrNoMonitor},
 			wantStatus: "No external monitor found",
-			wantReport: []string{ErrNoMonitor.Error()},
 		},
 		{
 			name:       "change and read fail for different reasons",
 			stateErrs:  []error{nil, ddc.ErrNoReply},
 			failures:   []error{nil, boom},
 			wantStatus: "Monitor is showing another computer",
-			wantReport: []string{ddc.ErrNoReply.Error(), "boom"},
+			wantReport: []string{"boom"},
 		},
 	}
 	for _, tt := range tests {
