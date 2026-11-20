@@ -68,11 +68,8 @@ func (d detector) readEDID(id uint64) (edid.Info, error) {
 
 func (d detector) openDisplay(disp Display) (bus.Bus, error) {
 	text, ok := strings.CutPrefix(disp.Bus, avPrefix)
-	if !ok {
-		return nil, fmt.Errorf("display: %q is not a display service", disp.Bus)
-	}
 	id, err := strconv.ParseUint(text, 10, 64)
-	if err != nil {
+	if !ok || err != nil {
 		return nil, fmt.Errorf("display: %q is not a display service", disp.Bus)
 	}
 	b, err := d.open(id)

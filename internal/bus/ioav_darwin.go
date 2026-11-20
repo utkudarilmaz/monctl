@@ -69,6 +69,8 @@ const maxAVServices = 16
 // ErrNoAVService means the display service is gone or is not an external display.
 var ErrNoAVService = errors.New("bus: no external display service with this id")
 
+var errAVClosed = errors.New("bus: display service is closed")
+
 // ListAV returns the registry ids of the external display services.
 func ListAV() ([]uint64, error) {
 	var ids [maxAVServices]C.uint64_t
@@ -100,6 +102,9 @@ func OpenAV(id uint64) (Bus, error) {
 // Write sends data to addr. The first byte goes out as the data address, as
 // the service wants it. On the EDID address it only picks the read offset.
 func (b *avBus) Write(addr uint8, data []byte) error {
+	if b.service == 0 {
+		return errAVClosed
+	}
 	if len(data) == 0 {
 		return errors.New("bus: empty write")
 	}
@@ -115,6 +120,9 @@ func (b *avBus) Write(addr uint8, data []byte) error {
 }
 
 func (b *avBus) Read(addr uint8, n int) ([]byte, error) {
+	if b.service == 0 {
+		return nil, errAVClosed
+	}
 	if n <= 0 {
 		return nil, errors.New("bus: empty read")
 	}
