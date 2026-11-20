@@ -8,12 +8,9 @@ Change your monitor's settings from the computer instead of the buttons on the m
 
 Early development. Nothing is released yet.
 
-Works now on Linux: `list`, `brightness`, `input`, and `probe`.
+Works now on Linux and on macOS with Apple Silicon: `list`, `brightness`, `input`, and `probe`. Intel Macs are not supported.
 
-Planned for the first release:
-
-- macOS support
-- An optional tray menu on GNOME and in the macOS menu bar
+Planned for the first release: an optional tray menu on GNOME and in the macOS menu bar.
 
 ## Usage
 
@@ -26,7 +23,7 @@ ID                 NAME           CONNECTOR  BUS         PROFILE
 msi-3cf0-ab12cd34  MPG 274U E16M  DP-1       /dev/i2c-5  MSI MPG 274URDFW E16M
 ```
 
-`list` shows the external monitors monctl can reach. The ID is the maker, the product code, and the serial number from the monitor. On macOS, `list` reports that the system is not supported yet.
+`list` shows the external monitors monctl can reach. The ID is the maker, the product code, and the serial number from the monitor. On macOS, CONNECTOR shows `-` and BUS shows the display service, for example `avservice:4295167419`.
 
 ```sh
 monctl brightness        # print the brightness
@@ -97,17 +94,27 @@ monctl prints these commands when it cannot open a bus.
 
 The rule gives the logged in user read and write access to every I2C bus on the graphics card, not only the ones that lead to a monitor. monctl itself only opens buses that belong to a PCI graphics device. It never opens SMBus or other system buses.
 
+## macOS setup
+
+No setup is needed. There is no udev rule, no sudo, and no extra permission.
+
+monctl lists only external monitors. The built-in screen is never listed.
+
+monctl uses IOAVService, a private Apple API that other monitor tools for Apple Silicon also use, so a future macOS version could break it.
+
 ## Supported monitors
 
 | Monitor | Brightness | Input switching |
 |---|---|---|
 | MSI MPG 274URDFW E16M | yes | DisplayPort and USB-C. HDMI values are not measured yet. |
 
+On macOS, this monitor is tested over USB-C.
+
 Other monitors are added through small profile files. See [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor).
 
 ## Build
 
-You need Go 1.25 or newer.
+You need Go 1.25 or newer. On macOS, also install the Xcode command line tools, because the macOS part uses cgo with the IOKit framework.
 
 ```sh
 make build
