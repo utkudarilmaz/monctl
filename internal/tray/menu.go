@@ -85,9 +85,11 @@ func refresher(ctl Controller, report func(error)) func(failure error) View {
 	reportState := once(report)
 	return func(failure error) View {
 		state, err := ctl.State()
-		reportState(err)
+		if !shownInMenu(err) {
+			reportState(err)
+		}
 		view := Render(state, err)
-		if failure != nil {
+		if failure != nil && !shownInMenu(failure) {
 			if err == nil || failure.Error() != err.Error() {
 				report(failure)
 			}
@@ -95,6 +97,12 @@ func refresher(ctl Controller, report func(error)) func(failure error) View {
 		}
 		return view
 	}
+}
+
+// shownInMenu reports whether the menu already explains the error, so it is
+// a normal state and not worth a line in the terminal.
+func shownInMenu(err error) bool {
+	return errors.Is(err, ddc.ErrNoReply) || errors.Is(err, ErrNoMonitor)
 }
 
 func once(report func(error)) func(error) {
