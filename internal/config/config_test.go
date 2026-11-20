@@ -95,8 +95,34 @@ func TestLoadAcceptsEmptyAndNullInputs(t *testing.T) {
 			t.Errorf("Load(%s) error = %v", content, err)
 			continue
 		}
-		if c.Inputs["dp"] != (Input{}) {
+		if in := c.Inputs["dp"]; in.Label != "" || in.Hidden || in.Before != nil {
 			t.Errorf("Load(%s) = %+v", content, c)
 		}
+	}
+}
+
+func TestLoadReadsBefore(t *testing.T) {
+	dir := write(t, `{"inputs": {"dp": {"before": ["ssh", "workstation", "monctl", "wake"]}}}`)
+
+	c, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.Inputs["dp"].Before; len(got) != 4 || got[0] != "ssh" || got[3] != "wake" {
+		t.Fatalf("before = %v", got)
+	}
+}
+
+func TestLoadRejectsBadBefore(t *testing.T) {
+	for name, content := range map[string]string{
+		"empty word":   `{"inputs": {"dp": {"before": ["ssh", ""]}}}`,
+		"control char": `{"inputs": {"dp": {"before": ["ssh", "a\u001bb"]}}}`,
+		"not a list":   `{"inputs": {"dp": {"before": "ssh workstation"}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Load(write(t, content)); err == nil {
+				t.Fatal("expected an error")
+			}
+		})
 	}
 }

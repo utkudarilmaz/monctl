@@ -154,6 +154,15 @@ func (m *Monitor) Source() (Source, error) {
 // SetInput switches to the input with the given id or label. The monitor
 // stops answering once it shows another computer, so nothing is read back.
 func (m *Monitor) SetInput(name string) (Input, error) {
+	in, err := m.Lookup(name)
+	if err != nil {
+		return Input{}, err
+	}
+	return in, m.control.SetVCP(vcpInput, in.write)
+}
+
+// Lookup finds the input with the given id or label without switching to it.
+func (m *Monitor) Lookup(name string) (Input, error) {
 	if !m.hasProfile {
 		return Input{}, ErrNoProfile
 	}
@@ -161,7 +170,7 @@ func (m *Monitor) SetInput(name string) (Input, error) {
 	if !ok {
 		return Input{}, fmt.Errorf("%w %q", ErrUnknownInput, name)
 	}
-	return in, m.control.SetVCP(vcpInput, in.write)
+	return in, nil
 }
 
 // SetInputRaw writes an input value that is not checked against a profile.

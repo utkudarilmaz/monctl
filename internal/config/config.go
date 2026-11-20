@@ -25,6 +25,9 @@ type Config struct {
 type Input struct {
 	Label  string `json:"label"`
 	Hidden bool   `json:"hidden"`
+	// Before is a program and its arguments, run before the monitor is
+	// switched to this input. The switch is skipped when it fails.
+	Before []string `json:"before"`
 }
 
 // Dir returns the monctl config directory: $XDG_CONFIG_HOME/monctl, or
@@ -59,6 +62,11 @@ func Load(dir string) (Config, error) {
 	for id, in := range c.Inputs {
 		if !profile.Printable(in.Label) {
 			return Config{}, fmt.Errorf("%s: input %q has a label with a character that cannot be printed", path, id)
+		}
+		for _, arg := range in.Before {
+			if arg == "" || !profile.Printable(arg) {
+				return Config{}, fmt.Errorf("%s: input %q has an empty or unprintable word in before", path, id)
+			}
 		}
 	}
 	return c, nil
