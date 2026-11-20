@@ -105,7 +105,20 @@ sudo apt install gnome-shell-extension-appindicator
 gnome-extensions enable ubuntu-appindicators@ubuntu.com
 ```
 
-`monctl tray` prints these steps when the extension is missing. macOS needs no setup. Starting the tray at login is not built yet. It comes with the packages.
+`monctl tray` prints these steps when the extension is missing. macOS needs no setup.
+
+The tray does not start at login by default. To turn that on with the Debian package on GNOME:
+
+```sh
+mkdir -p ~/.config/autostart
+cp /usr/share/monctl/monctl-tray.desktop ~/.config/autostart/
+```
+
+On macOS, run this from the unpacked archive, then log in again. The file expects monctl in `/usr/local/bin/monctl`.
+
+```sh
+cp packaging/io.github.utkudarilmaz.monctl.tray.plist ~/Library/LaunchAgents/
+```
 
 ## How input switching behaves
 
@@ -114,7 +127,45 @@ gnome-extensions enable ubuntu-appindicators@ubuntu.com
 - The target computer must be awake and sending a picture. If not, the monitor finds no signal and falls back after a few seconds. A laptop with a closed lid may go to sleep when the picture leaves it.
 - After a switch, the monitor needs around ten seconds before it answers again.
 
+## Install
+
+Nothing is released yet. Packages will be on the [GitHub releases page](https://github.com/utkudarilmaz/monctl/releases). Until then, [build from source](#build-from-source).
+
+### Debian package
+
+Builds exist for amd64 and arm64.
+
+```sh
+sudo apt install ./monctl_<version>_amd64.deb
+```
+
+The package installs `/usr/bin/monctl` and the udev rule, so you can skip [Linux setup](#linux-setup). It also installs the docs, the licence texts of the libraries monctl uses, and a tray start file in `/usr/share/monctl/`.
+
+### macOS archive
+
+Apple Silicon only. The archive holds the `monctl` binary and a LaunchAgent file for the [tray](#tray-menu).
+
+```sh
+tar -xzf monctl_<version>_darwin_arm64.tar.gz
+sudo cp monctl_<version>_darwin_arm64/monctl /usr/local/bin/
+```
+
+The binary is not signed with an Apple Developer ID, so macOS may block the first start of a downloaded copy. Allow it in System Settings under Privacy and Security. A copy built on the same Mac with `make build` is not affected.
+
+### Build from source
+
+You need Go 1.25 or newer. On macOS, also install the Xcode command line tools, because the macOS part uses cgo with the IOKit framework.
+
+```sh
+make build
+./bin/monctl version
+```
+
+On Linux, then follow [Linux setup](#linux-setup).
+
 ## Linux setup
+
+These steps are only for a build from source. The Debian package does them for you.
 
 monctl needs access to the I2C buses of your graphics card. Install the udev rule from this repo:
 
@@ -146,22 +197,13 @@ On macOS, this monitor is tested over USB-C.
 
 Other monitors are added through small profile files. See [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor).
 
-## Build
-
-You need Go 1.25 or newer. On macOS, also install the Xcode command line tools, because the macOS part uses cgo with the IOKit framework.
-
-```sh
-make build
-./bin/monctl version
-```
-
 ## Development
 
 ```sh
 make ci
 ```
 
-`make ci` runs every check the CI workflow runs: dependency check, lint, tests, and build. The workflow only calls `make` targets, so a failure in CI can be reproduced on your machine with the same command. Run `make` alone to list all targets.
+`make ci` runs every check the CI workflow runs: dependency check, lint, tests, build, and `make package`. `make package` writes `dist/monctl_<version>_<os>_<arch>.tar.gz`, and on Linux also `dist/monctl_<version>_<arch>.deb`. The workflow only calls `make` targets, so a failure in CI can be reproduced on your machine with the same command. Run `make` alone to list all targets.
 
 ## License
 

@@ -13,7 +13,22 @@ GOLANGCI_LINT_SUMS    := $(BIN_DIR)/golangci-lint-$(GOLANGCI_LINT_VERSION:v%=%)-
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null)
 VERSION := $(if $(strip $(VERSION)),$(VERSION),dev)
+ifeq ($(shell printf '%s\n' '$(subst ','\'',$(VERSION))' | grep -Ex '[A-Za-z0-9][A-Za-z0-9.+-]*'),)
+$(error VERSION may only hold letters, digits, dot, plus and minus)
+endif
 export MONCTL_VERSION := $(VERSION)
+
+GOOS         := $(shell $(GO) env GOOS)
+GOARCH       := $(shell $(GO) env GOARCH)
+export GOARCH
+DIST_DIR     := dist
+# cgo would tie the Linux binary to the C library of the build machine.
+GO_BUILD     := $(if $(filter linux,$(GOOS)),CGO_ENABLED=0 )$(GO) build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$$MONCTL_VERSION"
+PLAIN        := $(VERSION:v%=%)
+DEB_VERSION  := $(if $(filter 0% 1% 2% 3% 4% 5% 6% 7% 8% 9%,$(PLAIN)),$(PLAIN),0.0.0+$(PLAIN))
+STAGE        := $(DIST_DIR)/$(APPLICATION)_$(PLAIN)_$(GOOS)_$(GOARCH)
+DEB_ROOT     := $(DIST_DIR)/deb_$(GOARCH)
+PACKAGING_FILES := $(if $(filter darwin,$(GOOS)),$(wildcard packaging/macos/*.plist),packaging/linux/60-monctl.rules packaging/linux/monctl-tray.desktop)
 
 .DEFAULT_GOAL := help
 
@@ -27,7 +42,7 @@ help:
 	@grep -E '^(dep|lint|test|clean):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1mBuild:\033[0m"
-	@grep -E '^(build):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(build|dist|deb|package):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1mCI:\033[0m"
 	@grep -E '^(ci):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -68,7 +83,7 @@ test: ## Run tests with the race detector and coverage
 
 .PHONY: clean
 clean: ## Remove built files and the downloaded linter
-	@rm -rf $(BIN_DIR) dist
+	@rm -rf $(BIN_DIR) $(DIST_DIR)
 
 # =============================================================================
 # Build
@@ -77,12 +92,48 @@ clean: ## Remove built files and the downloaded linter
 .PHONY: build
 build: ## Build monctl for this machine
 	@mkdir -p $(BIN_DIR)
-	@$(GO) build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$$MONCTL_VERSION" -o $(BINARY) ./cmd/$(APPLICATION)
+	@$(GO_BUILD) -o $(BINARY) ./cmd/$(APPLICATION)
 	@echo "Build complete! Binary: $(BINARY)"
+
+$(STAGE)/licenses:
+	@mkdir -p $@
+	@for module in $$($(GO) list -deps -f '{{with .Module}}{{if not .Main}}{{.Path}}{{end}}{{end}}' ./cmd/$(APPLICATION) | sort -u); do \
+		dir=$$($(GO) list -m -f '{{.Dir}}' "$$module"); \
+		install -m 644 "$$dir/LICENSE" "$@/$$(echo "$$module" | tr '/' '_').txt" || exit 1; \
+	done
+
+.PHONY: dist
+dist: $(STAGE)/licenses ## Build the release archive for this machine
+	@$(GO_BUILD) -o $(STAGE)/$(APPLICATION) ./cmd/$(APPLICATION)
+	@cp LICENSE README.md $(STAGE)/
+	@mkdir -p $(STAGE)/packaging
+	@cp $(PACKAGING_FILES) $(STAGE)/packaging/
+	@chmod -R u=rwX,go=rX $(STAGE)
+	@tar -czf $(STAGE).tar.gz -C $(DIST_DIR) $(notdir $(STAGE))
+	@echo "Archive: $(STAGE).tar.gz"
+
+.PHONY: deb
+deb: dist ## Build the Debian package from the release archive
+	@mkdir -p $(DEB_ROOT)/DEBIAN $(DEB_ROOT)/usr/bin $(DEB_ROOT)/usr/lib/udev/rules.d $(DEB_ROOT)/usr/share/doc/$(APPLICATION) $(DEB_ROOT)/usr/share/$(APPLICATION)
+	@cp $(STAGE)/$(APPLICATION) $(DEB_ROOT)/usr/bin/
+	@cp packaging/linux/60-monctl.rules $(DEB_ROOT)/usr/lib/udev/rules.d/
+	@cp packaging/linux/monctl-tray.desktop $(DEB_ROOT)/usr/share/$(APPLICATION)/
+	@cp README.md $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
+	@cp LICENSE $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/copyright
+	@cp -R $(STAGE)/licenses $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
+	@cp packaging/linux/postinst $(DEB_ROOT)/DEBIAN/postinst
+	@chmod -R u=rwX,go=rX $(DEB_ROOT)
+	@chmod 755 $(DEB_ROOT)/DEBIAN/postinst $(DEB_ROOT)/usr/bin/$(APPLICATION)
+	@sed -e 's/@VERSION@/$(DEB_VERSION)/' -e 's/@ARCH@/$(GOARCH)/' packaging/linux/control > $(DEB_ROOT)/DEBIAN/control
+	@dpkg-deb --root-owner-group --build $(DEB_ROOT) $(DIST_DIR)/$(APPLICATION)_$(DEB_VERSION)_$(GOARCH).deb >/dev/null
+	@echo "Package: $(DIST_DIR)/$(APPLICATION)_$(DEB_VERSION)_$(GOARCH).deb"
+
+.PHONY: package
+package: $(if $(filter linux,$(GOOS)),deb,dist) ## Build everything a release ships for this machine
 
 # =============================================================================
 # CI
 # =============================================================================
 
 .PHONY: ci
-ci: dep lint test build ## Run every check the ci workflow runs
+ci: dep lint test build package ## Run every check the ci workflow runs
