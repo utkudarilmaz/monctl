@@ -5,7 +5,7 @@ LDFLAGS := -X main.version=$(VERSION)
 .PHONY: build test lint clean
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/monctl
+	go build -buildvcs=false -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/monctl
 
 test:
 	go test -race ./...
