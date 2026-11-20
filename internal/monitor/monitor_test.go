@@ -186,3 +186,86 @@ func TestNoProfile(t *testing.T) {
 		t.Fatalf("brightness must work without a profile: %+v, %v", level, err)
 	}
 }
+
+type stubControl struct {
+	value  ddc.Value
+	setErr error
+	sets   int
+}
+
+func (s *stubControl) GetVCP(byte) (ddc.Value, error) { return s.value, nil }
+
+func (s *stubControl) SetVCP(byte, uint16) error {
+	s.sets++
+	return s.setErr
+}
+
+func TestBrightnessWriteErrorIsReturned(t *testing.T) {
+	failed := errors.New("write failed")
+	control := &stubControl{value: ddc.Value{Current: 50, Max: 100}, setErr: failed}
+	m := New(control, nil, config.Config{})
+
+	if _, err := m.SetBrightness(10); !errors.Is(err, failed) {
+		t.Fatalf("SetBrightness error = %v, want %v", err, failed)
+	}
+	if _, err := m.AdjustBrightness(10); !errors.Is(err, failed) {
+		t.Fatalf("AdjustBrightness error = %v, want %v", err, failed)
+	}
+	if control.sets != 2 {
+		t.Fatalf("SetVCP called %d times, want 2", control.sets)
+	}
+}
+
+func TestBrightnessWithAMaxOtherThan100(t *testing.T) {
+	tests := []struct{ set, want int }{{30, 30}, {80, 50}, {-1, 0}}
+	for _, tt := range tests {
+		m, fake := newMonitor(testProfile, config.Config{})
+		fake.VCP[0x10] = bustest.VCP{Current: 25, Max: 50}
+		level, err := m.SetBrightness(tt.set)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if level != (Level{Current: tt.want, Max: 50}) {
+			t.Errorf("SetBrightness(%d) = %+v, want %d of 50", tt.set, level, tt.want)
+		}
+	}
+
+	m, fake := newMonitor(testProfile, config.Config{})
+	fake.VCP[0x10] = bustest.VCP{Current: 300, Max: 400}
+	if level, _ := m.AdjustBrightness(200); level.Current != 400 {
+		t.Fatalf("AdjustBrightness above 255 = %+v, want 400", level)
+	}
+}
+
+func TestFindPrefersIDsOverLabels(t *testing.T) {
+	cfg := config.Config{Inputs: map[string]config.Input{
+		"usbc":  {Label: "DP"},
+		"hdmi1": {Label: "usbc", Hidden: true},
+		"vga":   {Label: "Ignored"},
+	}}
+	m, fake := newMonitor(testProfile, cfg)
+
+	tests := []struct {
+		name  string
+		id    string
+		value uint16
+	}{{"dp", "dp", 5}, {"usbc", "usbc", 8}, {"DisplayPort", "dp", 5}, {"hdmi 1", "", 0}}
+	for _, tt := range tests {
+		in, err := m.SetInput(tt.name)
+		if tt.id == "" {
+			if !errors.Is(err, ErrUnknownInput) {
+				t.Errorf("SetInput(%q) = %+v, %v, want ErrUnknownInput", tt.name, in, err)
+			}
+			continue
+		}
+		if err != nil || in.ID != tt.id || fake.VCP[0x60].Current != tt.value {
+			t.Errorf("SetInput(%q) = %+v, %v, wrote %d, want %s and %d", tt.name, in, err, fake.VCP[0x60].Current, tt.id, tt.value)
+		}
+	}
+	if _, err := m.SetInput("ignored"); !errors.Is(err, ErrUnknownInput) {
+		t.Fatalf("a label for an input outside the profile matched: %v", err)
+	}
+	if len(m.Inputs()) != 2 {
+		t.Fatalf("Inputs = %+v, want dp and usbc", m.Inputs())
+	}
+}

@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"io/fs"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -115,5 +116,12 @@ func TestShippedProfilesAreValid(t *testing.T) {
 		if w, ok := want[in.ID]; !ok || in.Write != w[0] || in.Read != w[1] {
 			t.Errorf("unexpected input %+v", in)
 		}
+	}
+}
+
+func TestLoadReportsReadErrors(t *testing.T) {
+	src := fstest.MapFS{"dir.json": {Mode: fs.ModeDir}}
+	if _, err := Load(src); err == nil {
+		t.Fatal("a directory named like a profile gave no error")
 	}
 }

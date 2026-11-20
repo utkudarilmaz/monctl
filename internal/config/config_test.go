@@ -69,3 +69,34 @@ func TestDir(t *testing.T) {
 		}
 	}
 }
+
+func TestDirWithoutAHome(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", "")
+	if dir, err := Dir(); err == nil {
+		t.Fatalf("Dir = %q, want an error", dir)
+	}
+}
+
+func TestLoadReportsReadErrors(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, FileName), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(dir); err == nil {
+		t.Fatal("a config path that is a directory gave no error")
+	}
+}
+
+func TestLoadAcceptsEmptyAndNullInputs(t *testing.T) {
+	for _, content := range []string{`{}`, `{"inputs": null}`, `{"inputs": {"dp": {}}}`} {
+		c, err := Load(write(t, content))
+		if err != nil {
+			t.Errorf("Load(%s) error = %v", content, err)
+			continue
+		}
+		if c.Inputs["dp"] != (Input{}) {
+			t.Errorf("Load(%s) = %+v", content, c)
+		}
+	}
+}

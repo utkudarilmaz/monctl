@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/utkudarilmaz/monctl/internal/monitor"
@@ -42,7 +43,7 @@ func (a app) input(opts options) int {
 	}
 	var raw uint8
 	if opts.raw {
-		n, err := strconv.ParseUint(opts.args[0], 0, 8)
+		n, err := parseRaw(opts.args[0])
 		if err != nil {
 			return a.usageError("raw input value %q must be a number from 0 to 255", opts.args[0])
 		}
@@ -127,4 +128,12 @@ func (a app) showInput(s *session, opts options) int {
 	}
 	_ = w.Flush()
 	return 0
+}
+
+// parseRaw reads decimal, or hex with a 0x prefix. A leading zero is not octal.
+func parseRaw(s string) (uint64, error) {
+	if hex, ok := strings.CutPrefix(strings.ToLower(s), "0x"); ok {
+		return strconv.ParseUint(hex, 16, 8)
+	}
+	return strconv.ParseUint(s, 10, 8)
 }

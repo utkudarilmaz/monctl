@@ -55,15 +55,18 @@ func (a app) probe(opts options) int {
 	out.Capabilities = report(caps, err)
 
 	if opts.json {
-		return a.printJSON(out)
+		if code := a.printJSON(out); code != 0 {
+			return code
+		}
+	} else {
+		_, _ = fmt.Fprintf(a.stdout, "Monitor:       %s\n", out.Name)
+		_, _ = fmt.Fprintf(a.stdout, "Manufacturer:  %s\n", out.Manufacturer)
+		_, _ = fmt.Fprintf(a.stdout, "Product code:  %s\n", out.ProductCode)
+		_, _ = fmt.Fprintf(a.stdout, "Profile:       %s\n", out.Profile)
+		_, _ = fmt.Fprintf(a.stdout, "Brightness:    %s\n", out.Brightness)
+		_, _ = fmt.Fprintf(a.stdout, "Input value:   %s\n", out.InputValue)
+		_, _ = fmt.Fprintf(a.stdout, "Capabilities:  %s\n", out.Capabilities)
 	}
-	_, _ = fmt.Fprintf(a.stdout, "Monitor:       %s\n", out.Name)
-	_, _ = fmt.Fprintf(a.stdout, "Manufacturer:  %s\n", out.Manufacturer)
-	_, _ = fmt.Fprintf(a.stdout, "Product code:  %s\n", out.ProductCode)
-	_, _ = fmt.Fprintf(a.stdout, "Profile:       %s\n", out.Profile)
-	_, _ = fmt.Fprintf(a.stdout, "Brightness:    %s\n", out.Brightness)
-	_, _ = fmt.Fprintf(a.stdout, "Input value:   %s\n", out.InputValue)
-	_, _ = fmt.Fprintf(a.stdout, "Capabilities:  %s\n", out.Capabilities)
 	if silent {
 		_, _ = fmt.Fprint(a.stderr, "\n"+silentHelp)
 		return 1
