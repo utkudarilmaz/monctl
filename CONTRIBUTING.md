@@ -4,7 +4,7 @@ Thanks for helping.
 
 ## Development setup
 
-You need Go 1.25 or newer. The linter is installed for you, at a pinned version, the first time you run `make lint`.
+You need Go 1.25 or newer. The linter is downloaded for you the first time you run `make lint`, at a pinned version and with its checksum checked.
 
 ```sh
 make ci
