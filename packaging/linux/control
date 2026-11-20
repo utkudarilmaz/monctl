@@ -1,0 +1,12 @@
+Package: monctl
+Version: @VERSION@
+Architecture: @ARCH@
+Maintainer: Utku Darilmaz <utkudarilmaz@users.noreply.github.com>
+Section: utils
+Priority: optional
+Homepage: https://github.com/utkudarilmaz/monctl
+Depends: udev
+Suggests: gnome-shell-extension-appindicator
+Description: Change monitor settings from the computer
+ monctl sets the brightness and the input of external monitors over
+ DDC/CI, from the command line or from a menu in the top bar.

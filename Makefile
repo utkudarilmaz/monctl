@@ -15,6 +15,15 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null)
 VERSION := $(if $(strip $(VERSION)),$(VERSION),dev)
 export MONCTL_VERSION := $(VERSION)
 
+GOOS         := $(shell $(GO) env GOOS)
+GOARCH       := $(shell $(GO) env GOARCH)
+DIST_DIR     := dist
+PLAIN        := $(VERSION:v%=%)
+DEB_VERSION  := $(if $(filter 0% 1% 2% 3% 4% 5% 6% 7% 8% 9%,$(PLAIN)),$(PLAIN),0.0.0+$(PLAIN))
+STAGE        := $(DIST_DIR)/$(APPLICATION)_$(PLAIN)_$(GOOS)_$(GOARCH)
+DEB_ROOT     := $(DIST_DIR)/deb_$(GOARCH)
+PACKAGING_OS := $(if $(filter darwin,$(GOOS)),macos,$(GOOS))
+
 .DEFAULT_GOAL := help
 
 .PHONY: help
@@ -27,7 +36,7 @@ help:
 	@grep -E '^(dep|lint|test|clean):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1mBuild:\033[0m"
-	@grep -E '^(build):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(build|dist|deb|package):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1mCI:\033[0m"
 	@grep -E '^(ci):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -68,7 +77,7 @@ test: ## Run tests with the race detector and coverage
 
 .PHONY: clean
 clean: ## Remove built files and the downloaded linter
-	@rm -rf $(BIN_DIR) dist
+	@rm -rf $(BIN_DIR) $(DIST_DIR)
 
 # =============================================================================
 # Build
@@ -80,9 +89,42 @@ build: ## Build monctl for this machine
 	@$(GO) build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$$MONCTL_VERSION" -o $(BINARY) ./cmd/$(APPLICATION)
 	@echo "Build complete! Binary: $(BINARY)"
 
+$(STAGE)/licenses:
+	@mkdir -p $@
+	@for module in $$($(GO) list -deps -f '{{with .Module}}{{if not .Main}}{{.Path}}{{end}}{{end}}' ./cmd/$(APPLICATION) | sort -u); do \
+		dir=$$($(GO) list -m -f '{{.Dir}}' $$module); \
+		cp $$dir/LICENSE $@/$$(echo $$module | tr '/' '_').txt || exit 1; \
+	done
+
+.PHONY: dist
+dist: $(STAGE)/licenses ## Build the release archive for this machine
+	@$(GO) build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$$MONCTL_VERSION" -o $(STAGE)/$(APPLICATION) ./cmd/$(APPLICATION)
+	@cp LICENSE README.md $(STAGE)/
+	@cp -R packaging/$(PACKAGING_OS) $(STAGE)/packaging
+	@tar -czf $(STAGE).tar.gz -C $(DIST_DIR) $(notdir $(STAGE))
+	@echo "Archive: $(STAGE).tar.gz"
+
+.PHONY: deb
+deb: dist ## Build the Debian package from the release archive
+	@mkdir -p $(DEB_ROOT)/DEBIAN $(DEB_ROOT)/usr/bin $(DEB_ROOT)/usr/lib/udev/rules.d $(DEB_ROOT)/usr/share/doc/$(APPLICATION) $(DEB_ROOT)/usr/share/$(APPLICATION)
+	@cp $(STAGE)/$(APPLICATION) $(DEB_ROOT)/usr/bin/
+	@cp packaging/linux/60-monctl.rules $(DEB_ROOT)/usr/lib/udev/rules.d/
+	@cp packaging/linux/monctl-tray.desktop $(DEB_ROOT)/usr/share/$(APPLICATION)/
+	@cp README.md $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
+	@cp LICENSE $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/copyright
+	@cp -R $(STAGE)/licenses $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
+	@cp packaging/linux/postinst $(DEB_ROOT)/DEBIAN/postinst
+	@chmod 755 $(DEB_ROOT)/DEBIAN/postinst $(DEB_ROOT)/usr/bin/$(APPLICATION)
+	@sed -e 's/@VERSION@/$(DEB_VERSION)/' -e 's/@ARCH@/$(GOARCH)/' packaging/linux/control > $(DEB_ROOT)/DEBIAN/control
+	@dpkg-deb --root-owner-group --build $(DEB_ROOT) $(DIST_DIR)/$(APPLICATION)_$(DEB_VERSION)_$(GOARCH).deb >/dev/null
+	@echo "Package: $(DIST_DIR)/$(APPLICATION)_$(DEB_VERSION)_$(GOARCH).deb"
+
+.PHONY: package
+package: $(if $(filter linux,$(GOOS)),deb,dist) ## Build everything a release ships for this machine
+
 # =============================================================================
 # CI
 # =============================================================================
 
 .PHONY: ci
-ci: dep lint test build ## Run every check the ci workflow runs
+ci: dep lint test build package ## Run every check the ci workflow runs
