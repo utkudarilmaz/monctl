@@ -79,6 +79,24 @@ func (v View) Failed() View {
 	return v
 }
 
+// refresher reads the monitor and renders the menu, after a change that
+// failed with failure or after nothing when failure is nil.
+func refresher(ctl Controller, report func(error)) func(failure error) View {
+	reportState := once(report)
+	return func(failure error) View {
+		state, err := ctl.State()
+		reportState(err)
+		view := Render(state, err)
+		if failure != nil {
+			if err == nil || failure.Error() != err.Error() {
+				report(failure)
+			}
+			view = view.Failed()
+		}
+		return view
+	}
+}
+
 func once(report func(error)) func(error) {
 	var last string
 	return func(err error) {

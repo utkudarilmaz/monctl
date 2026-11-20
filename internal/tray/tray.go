@@ -50,15 +50,9 @@ func build(ctl Controller, report func(error)) {
 	}
 
 	var shown []InputView
-	reportState := once(report)
+	next := refresher(ctl, report)
 	refresh := func(failure error) {
-		state, err := ctl.State()
-		reportState(err)
-		view := Render(state, err)
-		if failure != nil {
-			report(failure)
-			view = view.Failed()
-		}
+		view := next(failure)
 		shown = view.Inputs
 		status.SetTitle(view.Status)
 		for _, item := range []*systray.MenuItem{brighter, dimmer, presets} {

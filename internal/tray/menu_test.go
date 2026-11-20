@@ -108,3 +108,91 @@ func TestOnceReportsAnErrorUntilItChanges(t *testing.T) {
 		t.Fatalf("reported %v, want %v", got, want)
 	}
 }
+
+type fakeController struct {
+	state State
+	errs  []error
+}
+
+func (f *fakeController) State() (State, error) {
+	var err error
+	if len(f.errs) > 0 {
+		err, f.errs = f.errs[0], f.errs[1:]
+	}
+	return f.state, err
+}
+
+func (f *fakeController) SetBrightness(int) error    { return nil }
+func (f *fakeController) AdjustBrightness(int) error { return nil }
+func (f *fakeController) SetInput(string) error      { return nil }
+
+func TestRefresher(t *testing.T) {
+	boom := errors.New("boom")
+	tests := []struct {
+		name       string
+		stateErrs  []error
+		failures   []error
+		wantStatus string
+		wantReport []string
+	}{
+		{
+			name:       "working monitor",
+			stateErrs:  []error{nil},
+			failures:   []error{nil},
+			wantStatus: "Brightness: 40%",
+		},
+		{
+			name:       "failed change on a working monitor",
+			stateErrs:  []error{nil},
+			failures:   []error{boom},
+			wantStatus: "Brightness: 40%, last change failed",
+			wantReport: []string{"boom"},
+		},
+		{
+			name:       "read error is reported once",
+			stateErrs:  []error{boom, boom, boom},
+			failures:   []error{nil, nil, nil},
+			wantStatus: "Cannot reach the monitor",
+			wantReport: []string{"boom"},
+		},
+		{
+			name:       "read error comes back after the monitor worked",
+			stateErrs:  []error{boom, nil, boom},
+			failures:   []error{nil, nil, nil},
+			wantStatus: "Cannot reach the monitor",
+			wantReport: []string{"boom", "boom"},
+		},
+		{
+			name:       "monitor lost during a change is reported once",
+			stateErrs:  []error{nil, ErrNoMonitor},
+			failures:   []error{nil, ErrNoMonitor},
+			wantStatus: "No external monitor found",
+			wantReport: []string{ErrNoMonitor.Error()},
+		},
+		{
+			name:       "change and read fail for different reasons",
+			stateErrs:  []error{nil, ddc.ErrNoReply},
+			failures:   []error{nil, boom},
+			wantStatus: "Monitor is showing another computer",
+			wantReport: []string{ddc.ErrNoReply.Error(), "boom"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var reported []string
+			ctl := &fakeController{state: State{Brightness: 40, Max: 100}, errs: tt.stateErrs}
+			next := refresher(ctl, func(err error) { reported = append(reported, err.Error()) })
+
+			var view View
+			for _, failure := range tt.failures {
+				view = next(failure)
+			}
+			if view.Status != tt.wantStatus {
+				t.Errorf("Status = %q, want %q", view.Status, tt.wantStatus)
+			}
+			if !reflect.DeepEqual(reported, tt.wantReport) {
+				t.Errorf("reported %q, want %q", reported, tt.wantReport)
+			}
+		})
+	}
+}
