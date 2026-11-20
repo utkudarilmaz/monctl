@@ -33,6 +33,7 @@ const (
 	capsFragmentMax  = 32
 	capsReplySize    = capsFragmentMax + 6
 	capsMaxLength    = 8192
+	capsMaxFragments = 512
 	waitBeforeRead   = 40 * time.Millisecond
 	waitAfterWrite   = 50 * time.Millisecond
 	waitBetweenTries = 100 * time.Millisecond
@@ -106,9 +107,9 @@ func (c *Client) SetVCP(code byte, value uint16) error {
 
 // Capabilities reads the capabilities string, which lists the features and values a display accepts.
 func (c *Client) Capabilities() (string, error) {
-	var out strings.Builder
-	for out.Len() <= capsMaxLength {
-		offset := out.Len()
+	var out []byte
+	for range capsMaxFragments {
+		offset := len(out)
 		hi, lo := byte(offset>>8), byte(offset)
 		payload, err := c.exchange([]byte{opCaps, hi, lo}, capsReplySize, func(p []byte) error {
 			if len(p) < 3 || p[0] != opCapsReply || p[1] != hi || p[2] != lo {
@@ -121,11 +122,24 @@ func (c *Client) Capabilities() (string, error) {
 		}
 		fragment := payload[3:]
 		if len(fragment) == 0 {
-			return strings.TrimRight(out.String(), "\x00"), nil
+			return printable(out), nil
 		}
-		out.Write(fragment)
+		out = append(out, fragment...)
+		if len(out) > capsMaxLength {
+			break
+		}
 	}
-	return "", fmt.Errorf("capabilities: longer than %d bytes: %w", capsMaxLength, ErrBadReply)
+	return "", fmt.Errorf("capabilities: display never finished sending: %w", ErrBadReply)
+}
+
+func printable(raw []byte) string {
+	var out strings.Builder
+	for _, b := range raw {
+		if b >= 0x20 && b <= 0x7e {
+			out.WriteByte(b)
+		}
+	}
+	return out.String()
 }
 
 func (c *Client) exchange(payload []byte, replySize int, check func([]byte) error) ([]byte, error) {

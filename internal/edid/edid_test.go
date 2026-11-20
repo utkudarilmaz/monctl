@@ -64,6 +64,24 @@ func TestParseFallsBackToNumericSerial(t *testing.T) {
 	}
 }
 
+func TestParseKeepsOnlyPrintableText(t *testing.T) {
+	block := msiBlock(t)
+	block[8], block[9] = 0x00, 0x00
+	copy(block[95:], []byte{0x1b, '[', '2', 'J', 'A', 0x07, 'B', '\n'})
+	fixChecksum(block)
+
+	got, err := Parse(block)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if got.Name != "[2JAB" {
+		t.Fatalf("Name = %q, want %q", got.Name, "[2JAB")
+	}
+	if got.Manufacturer != "???" {
+		t.Fatalf("Manufacturer = %q, want %q", got.Manufacturer, "???")
+	}
+}
+
 func TestParseRejectsBadInput(t *testing.T) {
 	short := msiBlock(t)[:100]
 

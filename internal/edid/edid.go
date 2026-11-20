@@ -79,10 +79,14 @@ func Parse(data []byte) (Info, error) {
 }
 
 func manufacturer(v uint16) string {
-	letters := []byte{
-		byte(v>>10&0x1f) + 'A' - 1,
-		byte(v>>5&0x1f) + 'A' - 1,
-		byte(v&0x1f) + 'A' - 1,
+	letters := make([]byte, 3)
+	for i, shift := range []uint{10, 5, 0} {
+		n := byte(v >> shift & 0x1f)
+		if n < 1 || n > 26 {
+			letters[i] = '?'
+			continue
+		}
+		letters[i] = 'A' + n - 1
 	}
 	return string(letters)
 }
@@ -92,5 +96,11 @@ func descriptorText(d []byte) string {
 	if i := bytes.IndexByte(text, '\n'); i >= 0 {
 		text = text[:i]
 	}
-	return strings.TrimSpace(string(text))
+	printable := make([]byte, 0, len(text))
+	for _, b := range text {
+		if b >= 0x20 && b <= 0x7e {
+			printable = append(printable, b)
+		}
+	}
+	return strings.TrimSpace(string(printable))
 }

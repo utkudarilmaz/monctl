@@ -199,8 +199,36 @@ func TestCapabilitiesJoinsFragments(t *testing.T) {
 	}
 }
 
+func TestCapabilitiesDropsControlBytes(t *testing.T) {
+	f := bustest.NewFake()
+	f.Capabilities = "(vcp\x1b[2J(10))"
+	c, _ := newClient(f)
+
+	got, err := c.Capabilities()
+	if err != nil {
+		t.Fatalf("Capabilities: %v", err)
+	}
+	if want := "(vcp[2J(10))"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestCapabilitiesStopsOnTinyFragments(t *testing.T) {
+	tiny := &endlessCaps{fragment: "x"}
+	c, _ := newClient(tiny)
+
+	_, err := c.Capabilities()
+
+	if !errors.Is(err, ddc.ErrBadReply) {
+		t.Fatalf("err = %v, want ErrBadReply", err)
+	}
+	if tiny.requests > 600 {
+		t.Fatalf("sent %d requests, want a cap near 512", tiny.requests)
+	}
+}
+
 func TestCapabilitiesStopsOnEndlessDisplay(t *testing.T) {
-	endless := &endlessCaps{}
+	endless := &endlessCaps{fragment: strings.Repeat("x", 32)}
 	c, _ := newClient(endless)
 
 	_, err := c.Capabilities()
@@ -210,15 +238,20 @@ func TestCapabilitiesStopsOnEndlessDisplay(t *testing.T) {
 	}
 }
 
-type endlessCaps struct{ offset []byte }
+type endlessCaps struct {
+	offset   []byte
+	fragment string
+	requests int
+}
 
 func (e *endlessCaps) Write(_ uint8, data []byte) error {
+	e.requests++
 	e.offset = []byte{data[3], data[4]}
 	return nil
 }
 
 func (e *endlessCaps) Read(_ uint8, n int) ([]byte, error) {
-	payload := append([]byte{0xe3, e.offset[0], e.offset[1]}, []byte(strings.Repeat("x", 32))...)
+	payload := append([]byte{0xe3, e.offset[0], e.offset[1]}, []byte(e.fragment)...)
 	reply := append([]byte{0x6e, 0x80 | byte(len(payload))}, payload...)
 	sum := byte(0x50)
 	for _, b := range reply {
