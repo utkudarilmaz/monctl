@@ -35,9 +35,10 @@ make build
 ## Development
 
 ```sh
-make test
-make lint
+make ci
 ```
+
+`make ci` runs every check the CI workflow runs: dependency check, lint, tests, and build. The workflow only calls `make` targets, so a failure in CI can be reproduced on your machine with the same command. Run `make` alone to list all targets.
 
 ## License
 
