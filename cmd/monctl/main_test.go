@@ -110,3 +110,21 @@ func TestListOtherError(t *testing.T) {
 		t.Fatalf("stderr %q does not show the error", errOut.String())
 	}
 }
+
+func TestListShowsHeaderAndOneLinePerDisplay(t *testing.T) {
+	a, out, _ := newApp([]display.Display{
+		{ID: "msi-3cf0", Bus: "/dev/i2c-12"},
+		{ID: "msi-3cf0-2", Connector: "DP-5", Bus: "/dev/i2c-13"},
+	}, nil)
+
+	if code := a.run([]string{"list"}); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], "ID") {
+		t.Fatalf("output %q, want a header and two rows", out.String())
+	}
+	if !strings.Contains(lines[1], "/dev/i2c-12") || !strings.Contains(lines[2], "/dev/i2c-13") {
+		t.Fatalf("rows out of order: %q", out.String())
+	}
+}

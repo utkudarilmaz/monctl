@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -380,5 +381,222 @@ func TestBusNumber(t *testing.T) {
 		if n != want.n || ok != want.ok {
 			t.Errorf("busNumber(%q) = %d, %v, want %d, %v", name, n, ok, want.n, want.ok)
 		}
+	}
+}
+
+func TestDetectLinkedBusIsNotGivenToAnotherConnector(t *testing.T) {
+	m := newMachine(t)
+	m.pciDevice(nvidia, "0x030000")
+	m.i2cBus(12, nvidia, msiEDID(t))
+	m.i2cBus(13, nvidia, msiEDID(t))
+	m.connector(nvidia, "DP-4", "connected", msiEDID(t))
+	rel := m.connector(nvidia, "DP-5", "connected", msiEDID(t))
+	m.link("i2c-12", filepath.Join(rel, "ddc"))
+
+	got, err := m.detector().detect()
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+
+	want := map[string]string{"DP-5": "i2c-12", "DP-4": "i2c-13"}
+	if len(got) != 2 {
+		t.Fatalf("found %d displays, want 2: %+v", len(got), got)
+	}
+	for _, d := range got {
+		if want[d.Connector] != filepath.Base(d.Bus) {
+			t.Fatalf("connector %q on %q, want %v", d.Connector, d.Bus, want)
+		}
+	}
+}
+
+func TestPair(t *testing.T) {
+	cases := map[string]struct {
+		buses      []int
+		connectors []connector
+		want       []pairing
+	}{
+		"no connector uses the first bus": {
+			buses: []int{12, 13},
+			want:  []pairing{{bus: 12}},
+		},
+		"more connectors than buses": {
+			buses:      []int{13},
+			connectors: []connector{{name: "DP-4", ddcBus: -1}, {name: "DP-5", ddcBus: -1}},
+			want:       []pairing{{bus: 13, connector: "DP-4"}},
+		},
+		"ddc link outside the group is ignored": {
+			buses:      []int{12, 13},
+			connectors: []connector{{name: "DP-4", ddcBus: 5}},
+			want:       []pairing{{bus: 12, connector: "DP-4"}},
+		},
+		"two connectors linked to one bus": {
+			buses:      []int{12, 13},
+			connectors: []connector{{name: "DP-4", ddcBus: 13}, {name: "DP-5", ddcBus: 13}},
+			want:       []pairing{{bus: 13, connector: "DP-4"}, {bus: 12, connector: "DP-5"}},
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := pair(tc.buses, tc.connectors)
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("pair = %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDetectIgnoresConnectorWithShortOrMissingEDID(t *testing.T) {
+	m := newMachine(t)
+	m.pciDevice(nvidia, "0x030000")
+	m.i2cBus(13, nvidia, msiEDID(t))
+	m.connector(nvidia, "DP-4", "connected", msiEDID(t)[:64])
+	rel := m.connector(nvidia, "DP-5", "connected", msiEDID(t))
+	if err := os.Remove(filepath.Join(m.root, rel, "edid")); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := m.detector().detect()
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+
+	if len(got) != 1 || got[0].Connector != "" {
+		t.Fatalf("got %+v, want one display with no connector name", got)
+	}
+}
+
+func TestDetectIgnoresConnectorShowingAnotherDisplay(t *testing.T) {
+	m := newMachine(t)
+	m.pciDevice(nvidia, "0x030000")
+	m.i2cBus(13, nvidia, msiEDID(t))
+	m.connector(nvidia, "DP-4", "connected", panelEDID(t))
+
+	got, err := m.detector().detect()
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+
+	if len(got) != 1 || got[0].Connector != "" {
+		t.Fatalf("got %+v, want one display with no connector name", got)
+	}
+}
+
+func TestDetectSkipsBrokenOrOddBusEntries(t *testing.T) {
+	m := newMachine(t)
+	m.pciDevice(nvidia, "0x030000")
+	m.i2cBus(13, nvidia, msiEDID(t))
+	m.link(filepath.Join(m.root, "sys/devices", nvidia, "gone"), "sys/bus/i2c/devices/i2c-14")
+	m.link(filepath.Join(m.root, "sys/devices", nvidia, "i2c-13"), "sys/bus/i2c/devices/i2c-abc")
+
+	got, err := m.detector().detect()
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+
+	if len(got) != 1 || len(m.opened) != 1 || m.opened[0] != "i2c-13" {
+		t.Fatalf("got %+v, opened %v, want one display from i2c-13 only", got, m.opened)
+	}
+}
+
+func TestDetectMissingSysfsFindsNothing(t *testing.T) {
+	d := detector{
+		sysfs: filepath.Join(t.TempDir(), "missing"),
+		open: func(string) (bus.Bus, error) {
+			t.Fatal("opened a bus with no sysfs")
+			return nil, nil
+		},
+	}
+
+	got, err := d.detect()
+
+	if err != nil || len(got) != 0 {
+		t.Fatalf("got %+v, %v, want nothing", got, err)
+	}
+}
+
+func TestDetectDoesNotWriteWhenCharDeviceLinkIsMissing(t *testing.T) {
+	m := newMachine(t)
+	m.pciDevice(nvidia, "0x030000")
+	m.i2cBus(13, nvidia, msiEDID(t))
+	if err := os.Remove(filepath.Join(m.root, "sys/dev/char/89:13")); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := m.detector().detect()
+
+	if err != nil || len(got) != 0 || m.writes != 0 {
+		t.Fatalf("got %+v, %v, %d writes, want nothing", got, err, m.writes)
+	}
+}
+
+func TestDetectKeepsWorkingDisplayWhenAnotherBusIsDenied(t *testing.T) {
+	m := newMachine(t)
+	m.pciDevice(nvidia, "0x030000")
+	m.i2cBus(12, nvidia, panelEDID(t))
+	m.i2cBus(13, nvidia, msiEDID(t))
+	m.denied["i2c-12"] = true
+
+	got, err := m.detector().detect()
+
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(got) != 1 || filepath.Base(got[0].Bus) != "i2c-13" {
+		t.Fatalf("got %+v, want the display on i2c-13", got)
+	}
+}
+
+type plainBus struct{ *bustest.Fake }
+
+type brokenNumberBus struct{ *bustest.Fake }
+
+func (brokenNumberBus) DeviceNumber() (uint32, uint32, error) {
+	return 89, 13, errors.New("no device number")
+}
+
+func TestOpenRejectsBusWithoutDeviceNumber(t *testing.T) {
+	cases := map[string]func(*bustest.Fake) bus.Bus{
+		"no DeviceNumber method": func(f *bustest.Fake) bus.Bus { return plainBus{f} },
+		"DeviceNumber fails":     func(f *bustest.Fake) bus.Bus { return brokenNumberBus{f} },
+	}
+	for name, wrap := range cases {
+		t.Run(name, func(t *testing.T) {
+			m := newMachine(t)
+			m.pciDevice(nvidia, "0x030000")
+			m.i2cBus(13, nvidia, msiEDID(t))
+			f := bustest.NewFake()
+			d := m.detector()
+			d.open = func(string) (bus.Bus, error) { return wrap(f), nil }
+
+			b, err := d.openVerified(d.busPath(13))
+
+			if err == nil || b != nil {
+				t.Fatalf("openVerified = %v, %v, want an error", b, err)
+			}
+			if !f.Closed {
+				t.Fatal("rejected bus was not closed")
+			}
+		})
+	}
+}
+
+func TestDetectSkipsBusWhenEDIDWriteFails(t *testing.T) {
+	m := newMachine(t)
+	m.pciDevice(nvidia, "0x030000")
+	m.i2cBus(13, nvidia, msiEDID(t))
+	d := m.detector()
+	open := d.open
+	d.open = func(path string) (bus.Bus, error) {
+		b, err := open(path)
+		if err == nil {
+			b.(fakeBus).FailWrites = 1
+		}
+		return b, err
+	}
+
+	got, err := d.detect()
+
+	if err != nil || len(got) != 0 {
+		t.Fatalf("got %+v, %v, want nothing", got, err)
 	}
 }
