@@ -2,6 +2,7 @@ package display
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -111,5 +112,114 @@ func TestOpenDisplay(t *testing.T) {
 		if _, err := s.detector().openDisplay(Display{Bus: bad}); err == nil {
 			t.Errorf("openDisplay accepted bus %q", bad)
 		}
+	}
+}
+
+func TestDetectGivesSameMonitorsDifferentIDs(t *testing.T) {
+	var s services
+	s.add(10, msiEDID(t))
+	s.add(11, msiEDID(t))
+
+	got, err := s.detector().detect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"msi-3cf0-0000000000000", "msi-3cf0-0000000000000-2"}
+	if len(got) != len(want) {
+		t.Fatalf("found %d displays, want %d", len(got), len(want))
+	}
+	for i, d := range got {
+		if d.ID != want[i] {
+			t.Errorf("displays[%d].ID = %q, want %q", i, d.ID, want[i])
+		}
+	}
+}
+
+func TestDetectClosesServiceWhenEDIDFails(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(*bustest.Fake)
+	}{
+		{"write fails", func(f *bustest.Fake) { f.FailWrites = 1 }},
+		{"read fails", func(f *bustest.Fake) { f.FailReads = 1 }},
+		{"edid is not valid", func(f *bustest.Fake) { f.EDID = make([]byte, 128) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var s services
+			f := s.add(5, msiEDID(t))
+			tt.setup(f)
+
+			got, err := s.detector().detect()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got) != 0 {
+				t.Fatalf("got %+v, want nothing", got)
+			}
+			if !f.Closed {
+				t.Fatal("the service was not closed")
+			}
+		})
+	}
+}
+
+func TestDetectBusRoundTripsThroughOpenDisplay(t *testing.T) {
+	var s services
+	want := s.add(18446744073709551615, msiEDID(t))
+
+	found, err := s.detector().detect()
+	if err != nil || len(found) != 1 {
+		t.Fatalf("detect = %+v, %v", found, err)
+	}
+	b, err := s.detector().openDisplay(found[0])
+	if err != nil || b != bus.Bus(want) {
+		t.Fatalf("openDisplay = %v, %v", b, err)
+	}
+}
+
+func TestOpenDisplayRejectsMalformedBus(t *testing.T) {
+	var s services
+	s.add(1, msiEDID(t))
+	for _, bad := range []string{
+		"avservice:18446744073709551616",
+		"avservice:+1",
+		"avservice: 1",
+		"avservice:1 ",
+		"avservice:0x1",
+		"avservice:1_0",
+		"AVSERVICE:1",
+		" avservice:1",
+	} {
+		_, err := s.detector().openDisplay(Display{Bus: bad})
+		if err == nil || !strings.Contains(err.Error(), "not a display service") {
+			t.Errorf("openDisplay(%q) error = %v, want a bad bus error", bad, err)
+		}
+	}
+}
+
+func TestOpenDisplayErrors(t *testing.T) {
+	boom := errors.New("boom")
+	tests := []struct {
+		name    string
+		openErr error
+		wantIs  error
+		wantMsg string
+	}{
+		{"gone", bus.ErrNoAVService, nil, "msi-3cf0 is gone"},
+		{"gone wrapped", fmt.Errorf("open: %w", bus.ErrNoAVService), nil, "msi-3cf0 is gone"},
+		{"other error passes through", boom, boom, "boom"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := detector{open: func(uint64) (bus.Bus, error) { return nil, tt.openErr }}
+			b, err := d.openDisplay(Display{ID: "msi-3cf0", Bus: "avservice:7"})
+			if b != nil || err == nil || !strings.Contains(err.Error(), tt.wantMsg) {
+				t.Fatalf("openDisplay = %v, %v, want error with %q", b, err, tt.wantMsg)
+			}
+			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
+				t.Fatalf("error %v does not wrap %v", err, tt.wantIs)
+			}
+		})
 	}
 }
