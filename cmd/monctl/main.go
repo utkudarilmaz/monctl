@@ -18,6 +18,7 @@ import (
 	"github.com/utkudarilmaz/monctl/internal/monitor"
 	"github.com/utkudarilmaz/monctl/internal/profile"
 	"github.com/utkudarilmaz/monctl/internal/tray"
+	"github.com/utkudarilmaz/monctl/internal/wake"
 	"github.com/utkudarilmaz/monctl/profiles"
 )
 
@@ -36,6 +37,7 @@ Commands:
   input -raw <value>   Switch with a raw value, for monitors without a profile
   probe                Print what a monitor reports, to help add a new model
   tray                 Show a menu in the system tray until you quit it
+  wake                 Turn on the screen of this computer
   version              Print the monctl version
 
 Flags:
@@ -69,6 +71,8 @@ type app struct {
 	config   func() (config.Config, error)
 	ddc      []ddc.Option
 	runTray  func(tray.Controller, func(error)) error
+	wake     func() error
+	exec     func(argv []string) error
 }
 
 var errNoMonitor = errors.New("no external monitor found")
@@ -93,6 +97,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		profiles: loadProfiles,
 		config:   loadConfig,
 		runTray:  tray.Run,
+		wake:     wake.Screen,
+		exec:     func(argv []string) error { return runCommand(argv, beforeTimeout) },
 	}.run(args)
 }
 
@@ -124,6 +130,7 @@ func (a app) run(args []string) int {
 		"input":      a.input,
 		"probe":      a.probe,
 		"tray":       a.tray,
+		"wake":       a.wakeScreen,
 	}
 
 	switch command, ok := commands[args[0]]; {
@@ -228,6 +235,7 @@ type session struct {
 	profile *profile.Profile
 	client  *ddc.Client
 	monitor *monitor.Monitor
+	config  config.Config
 	close   func()
 }
 
@@ -249,7 +257,7 @@ func (a app) connect(id string) (*session, error) {
 		return nil, err
 	}
 
-	s := &session{display: disp, client: ddc.New(b, a.ddc...), close: func() { _ = b.Close() }}
+	s := &session{display: disp, client: ddc.New(b, a.ddc...), config: cfg, close: func() { _ = b.Close() }}
 	if p, ok := profile.Find(all, disp.Info); ok {
 		s.profile = &p
 	}

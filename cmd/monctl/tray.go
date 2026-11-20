@@ -65,7 +65,7 @@ func (c trayController) AdjustBrightness(delta int) error {
 
 func (c trayController) SetInput(id string) error {
 	return c.with(func(s *session) error {
-		_, err := s.monitor.SetInput(id)
+		_, err := c.app.switchTo(s, id)
 		return err
 	})
 }

@@ -74,7 +74,7 @@ func (a app) input(opts options) int {
 }
 
 func (a app) switchInput(s *session, opts options) int {
-	in, err := s.monitor.SetInput(opts.args[0])
+	in, err := a.switchTo(s, opts.args[0])
 	switch {
 	case errors.Is(err, monitor.ErrNoProfile):
 		_, _ = fmt.Fprintln(a.stderr, "monctl: no profile for this monitor, so its inputs are not known.")
