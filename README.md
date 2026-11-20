@@ -46,6 +46,12 @@ Inputs:
   usbc  USB-C
 ```
 
+```sh
+monctl wake              # turn on the screen of this computer
+```
+
+`wake` takes no flags. On GNOME it needs this user to be logged in at the screen. On macOS it works like moving the mouse. It is meant to be run from another computer before a switch, see [Configuration](#configuration).
+
 Add `-json` to `list`, `brightness`, `input`, or `probe` for JSON output. With more than one monitor, pick one with `-d`:
 
 ```sh
@@ -70,6 +76,25 @@ monctl reads `~/.config/monctl/config.json`, or `$XDG_CONFIG_HOME/monctl/config.
 ```
 
 The keys are the input ids from `monctl input`. A label replaces the name shown, and you can use it as a name: `monctl input MacBook`. A hidden input leaves the list but still works by its id. Ids the monitor does not have are ignored.
+
+`before` is a command monctl runs before it switches the monitor to that input. Write the program and each argument as its own word, because no shell is used. If the command fails or takes longer than 20 seconds, monctl does not switch and prints why. It runs for `monctl input <name>` and for the tray, not for `monctl input -raw`.
+
+Use it to wake the other computer first. Say computers A and B can reach each other over SSH with keys, with no password prompt, and both have monctl installed. On A, give the input that leads to B this setting:
+
+```json
+{
+  "inputs": {
+    "usbc": {
+      "label": "Computer B",
+      "before": ["ssh", "-o", "BatchMode=yes", "user@computer-b", "monctl", "wake"]
+    }
+  }
+}
+```
+
+Do the same on B for the input that leads to A. If monctl is not on the PATH of the other computer, use its full path, for example `/usr/local/bin/monctl`.
+
+Only the config file can hold a `before` command, not a monitor profile. Because it can start programs, make the file writable only by you.
 
 To add or override a monitor profile, put it in `~/.config/monctl/profiles/*.json`. Your profiles win over the ones shipped with monctl.
 
@@ -124,7 +149,9 @@ cp packaging/io.github.utkudarilmaz.monctl.tray.plist ~/Library/LaunchAgents/
 
 - A monitor only answers on the input it is showing. A computer can send the picture to another computer, but it cannot pull it back.
 - When the monitor shows another computer, monctl says so.
-- The target computer must be awake and sending a picture. If not, the monitor finds no signal and falls back after a few seconds. A laptop with a closed lid may go to sleep when the picture leaves it.
+- The target computer must be awake and sending a picture. If its screen is asleep, the monitor finds no picture and falls back to the old input. With the monitor's automatic input scan turned off, it stays black instead. A laptop with a closed lid may go to sleep when the picture leaves it.
+- To fix this, wake the target computer first with a [`before` command](#configuration). In tests, switches with this step worked every time, also onto a blanked screen and onto a laptop with a closed lid.
+- Leave the monitor's automatic input scan on, so a failed switch falls back to a picture instead of a black screen.
 - After a switch, the monitor needs around ten seconds before it answers again.
 
 ## Install
