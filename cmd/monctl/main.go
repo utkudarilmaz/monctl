@@ -25,8 +25,8 @@ const accessHelp = `monctl: not allowed to open the monitor control channel.
 On Linux, install the udev rule that gives your user access:
 
   sudo cp packaging/linux/60-monctl.rules /etc/udev/rules.d/
-  sudo udevadm control --reload
-  sudo udevadm trigger --subsystem-match=i2c-dev
+  sudo udevadm control -R
+  sudo udevadm trigger -s i2c-dev
 
 Then run monctl again.
 `
