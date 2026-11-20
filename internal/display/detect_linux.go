@@ -1,7 +1,6 @@
 package display
 
 import (
-	"bytes"
 	"errors"
 	"io/fs"
 	"os"
@@ -66,7 +65,7 @@ func (d detector) detect() ([]Display, error) {
 		var matching []connector
 		builtIn := false
 		for _, c := range connectors {
-			if !bytes.Equal(c.edid, []byte(key)) {
+			if string(c.edid) != key {
 				continue
 			}
 			builtIn = builtIn || c.builtIn
@@ -141,14 +140,7 @@ func (d detector) readEDID(n int) ([]byte, error) {
 	if err := b.Write(bus.AddrEDID, []byte{0x00}); err != nil {
 		return nil, err
 	}
-	raw, err := b.Read(bus.AddrEDID, edid.BlockSize)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := edid.Parse(raw); err != nil {
-		return nil, err
-	}
-	return raw, nil
+	return b.Read(bus.AddrEDID, edid.BlockSize)
 }
 
 func (d detector) graphicsBuses() []int {
