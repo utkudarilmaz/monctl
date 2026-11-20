@@ -20,8 +20,13 @@ func Run(ctl Controller, report func(error)) error {
 }
 
 func build(ctl Controller, report func(error)) {
-	systray.SetTemplateIcon(Icon(color.Black), Icon(color.White))
-	systray.SetTooltip("monctl")
+	// On Linux the library can read the icon before it is set, so it is set
+	// again once the first refresh is done.
+	identify := func() {
+		systray.SetTemplateIcon(Icon(color.Black), Icon(color.White))
+		systray.SetTooltip("monctl")
+	}
+	identify()
 
 	status := systray.AddMenuItem("monctl", "")
 	status.Disable()
@@ -100,6 +105,7 @@ func build(ctl Controller, report func(error)) {
 
 	go func() {
 		refresh(nil)
+		identify()
 		for {
 			select {
 			case action := <-actions:
