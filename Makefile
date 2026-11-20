@@ -13,12 +13,17 @@ GOLANGCI_LINT_SUMS    := $(BIN_DIR)/golangci-lint-$(GOLANGCI_LINT_VERSION:v%=%)-
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null)
 VERSION := $(if $(strip $(VERSION)),$(VERSION),dev)
+ifeq ($(shell printf '%s\n' '$(subst ','\'',$(VERSION))' | grep -Ex '[A-Za-z0-9][A-Za-z0-9.+-]*'),)
+$(error VERSION may only hold letters, digits, dot, plus and minus)
+endif
 export MONCTL_VERSION := $(VERSION)
 
 GOOS         := $(shell $(GO) env GOOS)
 GOARCH       := $(shell $(GO) env GOARCH)
 export GOARCH
 DIST_DIR     := dist
+# cgo would tie the Linux binary to the C library of the build machine.
+GO_BUILD     := $(if $(filter linux,$(GOOS)),CGO_ENABLED=0 )$(GO) build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$$MONCTL_VERSION"
 PLAIN        := $(VERSION:v%=%)
 DEB_VERSION  := $(if $(filter 0% 1% 2% 3% 4% 5% 6% 7% 8% 9%,$(PLAIN)),$(PLAIN),0.0.0+$(PLAIN))
 STAGE        := $(DIST_DIR)/$(APPLICATION)_$(PLAIN)_$(GOOS)_$(GOARCH)
@@ -87,22 +92,23 @@ clean: ## Remove built files and the downloaded linter
 .PHONY: build
 build: ## Build monctl for this machine
 	@mkdir -p $(BIN_DIR)
-	@$(GO) build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$$MONCTL_VERSION" -o $(BINARY) ./cmd/$(APPLICATION)
+	@$(GO_BUILD) -o $(BINARY) ./cmd/$(APPLICATION)
 	@echo "Build complete! Binary: $(BINARY)"
 
 $(STAGE)/licenses:
 	@mkdir -p $@
 	@for module in $$($(GO) list -deps -f '{{with .Module}}{{if not .Main}}{{.Path}}{{end}}{{end}}' ./cmd/$(APPLICATION) | sort -u); do \
-		dir=$$($(GO) list -m -f '{{.Dir}}' $$module); \
-		install -m 644 $$dir/LICENSE $@/$$(echo $$module | tr '/' '_').txt || exit 1; \
+		dir=$$($(GO) list -m -f '{{.Dir}}' "$$module"); \
+		install -m 644 "$$dir/LICENSE" "$@/$$(echo "$$module" | tr '/' '_').txt" || exit 1; \
 	done
 
 .PHONY: dist
 dist: $(STAGE)/licenses ## Build the release archive for this machine
-	@$(GO) build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$$MONCTL_VERSION" -o $(STAGE)/$(APPLICATION) ./cmd/$(APPLICATION)
+	@$(GO_BUILD) -o $(STAGE)/$(APPLICATION) ./cmd/$(APPLICATION)
 	@cp LICENSE README.md $(STAGE)/
 	@mkdir -p $(STAGE)/packaging
-	@install -m 644 $(PACKAGING_FILES) $(STAGE)/packaging/
+	@cp $(PACKAGING_FILES) $(STAGE)/packaging/
+	@chmod -R u=rwX,go=rX $(STAGE)
 	@tar -czf $(STAGE).tar.gz -C $(DIST_DIR) $(notdir $(STAGE))
 	@echo "Archive: $(STAGE).tar.gz"
 
