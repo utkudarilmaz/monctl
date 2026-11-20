@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/utkudarilmaz/monctl/internal/config"
 )
@@ -104,23 +105,62 @@ func TestWakeCommand(t *testing.T) {
 }
 
 func TestRunCommand(t *testing.T) {
-	if err := runCommand([]string{"true"}); err != nil {
+	if err := runCommand([]string{"true"}, beforeTimeout); err != nil {
 		t.Fatalf("true failed: %v", err)
 	}
-	err := runCommand([]string{"sh", "-c", "echo first; echo broken pipe >&2; exit 3"})
+	err := runCommand([]string{"sh", "-c", "echo first; echo broken pipe >&2; exit 3"}, beforeTimeout)
 	if err == nil || !strings.Contains(err.Error(), "broken pipe") {
 		t.Fatalf("error = %v, want the last output line", err)
 	}
-	if err := runCommand([]string{"sh", "-c", "exit 3"}); err == nil || !strings.Contains(err.Error(), "exit status 3") {
+	err = runCommand([]string{"sh", "-c", "exit 3"}, beforeTimeout)
+	if err == nil || !strings.Contains(err.Error(), "exit status 3") {
 		t.Fatalf("error = %v, want the exit status", err)
 	}
-	if err := runCommand([]string{"monctl-no-such-program"}); err == nil {
+	if err := runCommand([]string{"monctl-no-such-program"}, beforeTimeout); err == nil {
 		t.Fatal("a missing program must fail")
 	}
 }
 
+func TestRunCommandStopsAtTheTimeout(t *testing.T) {
+	start := time.Now()
+	err := runCommand([]string{"sh", "-c", "sleep 5; true"}, 100*time.Millisecond)
+
+	if err == nil || !strings.Contains(err.Error(), "did not finish") {
+		t.Fatalf("error = %v, want a timeout", err)
+	}
+	if took := time.Since(start); took > 3*time.Second {
+		t.Fatalf("returned after %s, a child that held the output kept it waiting", took)
+	}
+}
+
+func TestRunCommandPrintsOnlySafeOutput(t *testing.T) {
+	err := runCommand([]string{"sh", "-c", `head -c 100000 /dev/zero; printf '\nbad\033[2Jline\n'; exit 1`}, beforeTimeout)
+
+	if err == nil || err.Error() != "sh: bad[2Jline" {
+		t.Fatalf("error = %q, want the last line without the escape character", err)
+	}
+}
+
+func TestTailKeepsOnlyTheEnd(t *testing.T) {
+	var out tail
+	for range 100 {
+		_, _ = out.Write([]byte(strings.Repeat("x", 1000)))
+	}
+	_, _ = out.Write([]byte("end"))
+
+	if len(out) != outputKept || cap(out) > 64*outputKept || !strings.HasSuffix(string(out), "xend") {
+		t.Fatalf("kept %d bytes with room for %d", len(out), cap(out))
+	}
+}
+
 func TestLastLine(t *testing.T) {
-	for in, want := range map[string]string{"": "", "one\n": "one", "one\n  two  \n\n": "two"} {
+	for in, want := range map[string]string{
+		"":                         "",
+		"one\n":                    "one",
+		"one\n  two  \n\n":         "two",
+		"one\ntwo\x1b]0;title\a\r": "two]0;title",
+		strings.Repeat("é", 500):   strings.Repeat("é", messageRunes),
+	} {
 		if got := lastLine(in); got != want {
 			t.Errorf("lastLine(%q) = %q, want %q", in, got, want)
 		}

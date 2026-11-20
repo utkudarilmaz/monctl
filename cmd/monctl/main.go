@@ -98,7 +98,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		config:   loadConfig,
 		runTray:  tray.Run,
 		wake:     wake.Screen,
-		exec:     runCommand,
+		exec:     func(argv []string) error { return runCommand(argv, beforeTimeout) },
 	}.run(args)
 }
 

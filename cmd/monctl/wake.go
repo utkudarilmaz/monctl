@@ -1,18 +1,23 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/utkudarilmaz/monctl/internal/monitor"
 )
 
-const beforeTimeout = 20 * time.Second
+const (
+	beforeTimeout = 20 * time.Second
+	beforeGrace   = time.Second
+	outputKept    = 4096
+	messageRunes  = 200
+)
 
 var errBefore = errors.New("the command to run before switching failed, so the picture was not moved")
 
@@ -42,27 +47,49 @@ func (a app) switchTo(s *session, name string) (monitor.Input, error) {
 	return s.monitor.SetInput(in.ID)
 }
 
-func runCommand(argv []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), beforeTimeout)
+func runCommand(argv []string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	var output bytes.Buffer
+	var output tail
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Stdout, cmd.Stderr = &output, &output
+	// Without this a child of the killed program that still holds the output
+	// keeps Run waiting past the timeout.
+	cmd.WaitDelay = beforeGrace
 	err := cmd.Run()
-	if ctx.Err() != nil {
-		return fmt.Errorf("%s did not finish in %s", argv[0], beforeTimeout)
-	}
-	if err != nil {
-		if line := lastLine(output.String()); line != "" {
-			return fmt.Errorf("%s: %s", argv[0], line)
-		}
+	switch line := lastLine(string(output)); {
+	case err == nil:
+		return nil
+	case ctx.Err() != nil:
+		return fmt.Errorf("%s did not finish in %s", argv[0], timeout)
+	case line != "":
+		return fmt.Errorf("%s: %s", argv[0], line)
+	default:
 		return fmt.Errorf("%s: %w", argv[0], err)
 	}
-	return nil
 }
 
+// tail keeps only the end of what is written to it.
+type tail []byte
+
+func (t *tail) Write(p []byte) (int, error) {
+	*t = append(*t, p...)
+	if extra := len(*t) - outputKept; extra > 0 {
+		*t = (*t)[extra:]
+	}
+	return len(p), nil
+}
+
+// lastLine returns the last line of text in a form that is safe to print: the
+// text may come from another computer.
 func lastLine(text string) string {
 	lines := strings.Split(strings.TrimSpace(text), "\n")
-	return strings.TrimSpace(lines[len(lines)-1])
+	line := []rune(strings.TrimSpace(strings.Map(func(r rune) rune {
+		if unicode.IsPrint(r) {
+			return r
+		}
+		return -1
+	}, lines[len(lines)-1])))
+	return string(line[:min(len(line), messageRunes)])
 }
