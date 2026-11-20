@@ -10,16 +10,16 @@ import (
 const maxInputs = 8
 
 // Run shows the tray menu and blocks until the user quits. It must be called
-// from the main goroutine.
-func Run(ctl Controller) error {
+// from the main goroutine. Errors from the monitor go to report.
+func Run(ctl Controller, report func(error)) error {
 	if err := checkHost(); err != nil {
 		return err
 	}
-	systray.Run(func() { build(ctl) }, nil)
+	systray.Run(func() { build(ctl, report) }, nil)
 	return nil
 }
 
-func build(ctl Controller) {
+func build(ctl Controller, report func(error)) {
 	systray.SetTemplateIcon(Icon(color.Black), Icon(color.White))
 	systray.SetTooltip("monctl")
 
@@ -40,8 +40,8 @@ func build(ctl Controller) {
 	systray.AddSeparator()
 	quit := systray.AddMenuItem("Quit", "")
 
-	actions := make(chan func(), 1)
-	on := func(item *systray.MenuItem, action func()) {
+	actions := make(chan func() error, 1)
+	on := func(item *systray.MenuItem, action func() error) {
 		go func() {
 			for range item.ClickedCh {
 				actions <- action
@@ -50,8 +50,15 @@ func build(ctl Controller) {
 	}
 
 	var shown []InputView
-	refresh := func() {
-		view := Render(ctl.State())
+	reportState := once(report)
+	refresh := func(failure error) {
+		state, err := ctl.State()
+		reportState(err)
+		view := Render(state, err)
+		if failure != nil {
+			report(failure)
+			view = view.Failed()
+		}
 		shown = view.Inputs
 		status.SetTitle(view.Status)
 		for _, item := range []*systray.MenuItem{brighter, dimmer, presets} {
@@ -79,29 +86,32 @@ func build(ctl Controller) {
 		}
 	}
 
-	on(brighter, func() { _ = ctl.AdjustBrightness(Step) })
-	on(dimmer, func() { _ = ctl.AdjustBrightness(-Step) })
+	on(brighter, func() error { return ctl.AdjustBrightness(Step) })
+	on(dimmer, func() error { return ctl.AdjustBrightness(-Step) })
 	for _, percent := range Presets {
-		on(presets.AddSubMenuItem(fmt.Sprintf("%d%%", percent), ""), func() { _ = ctl.SetBrightness(percent) })
+		on(presets.AddSubMenuItem(fmt.Sprintf("%d%%", percent), ""), func() error { return ctl.SetBrightness(percent) })
 	}
 	for i, item := range inputs {
-		on(item, func() {
-			if i < len(shown) {
-				_ = ctl.SetInput(shown[i].ID)
+		on(item, func() error {
+			if i >= len(shown) {
+				return nil
 			}
+			return ctl.SetInput(shown[i].ID)
 		})
 	}
-	on(quit, systray.Quit)
+	go func() {
+		<-quit.ClickedCh
+		systray.Quit()
+	}()
 
 	go func() {
-		refresh()
+		refresh(nil)
 		for {
 			select {
 			case action := <-actions:
-				action()
-				refresh()
+				refresh(action())
 			case <-systray.TrayOpenedCh:
-				refresh()
+				refresh(nil)
 			}
 		}
 	}()

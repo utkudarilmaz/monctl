@@ -85,3 +85,26 @@ func TestPresetsRoundTripOnA100Monitor(t *testing.T) {
 		}
 	}
 }
+
+func TestFailedMarksOnlyAWorkingMenu(t *testing.T) {
+	ok := Render(State{Brightness: 50, Max: 100}, nil).Failed()
+	if ok.Status != "Brightness: 50%, last change failed" {
+		t.Fatalf("Status = %q", ok.Status)
+	}
+	down := Render(State{}, ErrNoMonitor)
+	if got := down.Failed(); got.Status != down.Status {
+		t.Fatalf("Status = %q, want %q", got.Status, down.Status)
+	}
+}
+
+func TestOnceReportsAnErrorUntilItChanges(t *testing.T) {
+	var got []string
+	report := once(func(err error) { got = append(got, err.Error()) })
+
+	for _, err := range []error{errors.New("a"), errors.New("a"), nil, errors.New("a"), errors.New("b"), nil} {
+		report(err)
+	}
+	if want := []string{"a", "a", "b"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("reported %v, want %v", got, want)
+	}
+}

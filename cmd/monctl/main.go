@@ -68,7 +68,7 @@ type app struct {
 	profiles func() ([]profile.Profile, error)
 	config   func() (config.Config, error)
 	ddc      []ddc.Option
-	runTray  func(tray.Controller) error
+	runTray  func(tray.Controller, func(error)) error
 }
 
 var errNoMonitor = errors.New("no external monitor found")

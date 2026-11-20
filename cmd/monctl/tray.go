@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/utkudarilmaz/monctl/internal/tray"
 )
@@ -73,7 +74,8 @@ func (a app) tray(opts options) int {
 	if len(opts.args) > 0 || opts.json || opts.raw {
 		return a.usageError("tray takes only -d <id>")
 	}
-	if err := a.runTray(trayController{app: a, display: opts.display}); err != nil {
+	report := func(err error) { _, _ = fmt.Fprintf(a.stderr, "monctl: %v\n", err) }
+	if err := a.runTray(trayController{app: a, display: opts.display}, report); err != nil {
 		return a.fail(err)
 	}
 	return 0

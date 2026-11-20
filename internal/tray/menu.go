@@ -71,6 +71,28 @@ func Render(state State, err error) View {
 	return view
 }
 
+// Failed marks the menu after a change the monitor did not take.
+func (v View) Failed() View {
+	if v.Enabled {
+		v.Status += ", last change failed"
+	}
+	return v
+}
+
+func once(report func(error)) func(error) {
+	var last string
+	return func(err error) {
+		text := ""
+		if err != nil {
+			text = err.Error()
+		}
+		if text != "" && text != last {
+			report(err)
+		}
+		last = text
+	}
+}
+
 // Percent converts a raw brightness to percent of the monitor maximum.
 func Percent(value, limit int) int {
 	if limit <= 0 {

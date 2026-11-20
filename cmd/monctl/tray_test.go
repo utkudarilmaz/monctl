@@ -99,18 +99,25 @@ func TestTrayControllerPicksTheDisplay(t *testing.T) {
 func TestTrayCommand(t *testing.T) {
 	r := newRig(msi)
 	var got tray.Controller
-	r.app.runTray = func(c tray.Controller) error { got = c; return nil }
+	r.app.runTray = func(c tray.Controller, report func(error)) error {
+		got = c
+		report(errors.New("monitor went away"))
+		return nil
+	}
 
 	r.run(t, 0, "tray", "-d", "msi-3cf0")
 	if c, ok := got.(trayController); !ok || c.display != "msi-3cf0" {
 		t.Fatalf("tray got controller %+v", got)
+	}
+	if !strings.Contains(r.errOut.String(), "monctl: monitor went away\n") {
+		t.Fatalf("stderr = %q, want the reported error", r.errOut)
 	}
 
 	for _, args := range [][]string{{"tray", "now"}, {"tray", "-json"}, {"tray", "-raw"}} {
 		r.run(t, 2, args...)
 	}
 
-	r.app.runTray = func(tray.Controller) error { return errors.New("no tray here") }
+	r.app.runTray = func(tray.Controller, func(error)) error { return errors.New("no tray here") }
 	r.run(t, 1, "tray")
 	if !strings.Contains(r.errOut.String(), "no tray here") {
 		t.Fatalf("stderr = %q", r.errOut)
