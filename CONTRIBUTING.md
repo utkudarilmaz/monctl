@@ -4,13 +4,13 @@ Thanks for helping.
 
 ## Development setup
 
-You need Go 1.25 or newer and [golangci-lint](https://golangci-lint.run) v2.
+You need Go 1.25 or newer. The linter is installed for you, at a pinned version, the first time you run `make lint`.
 
 ```sh
-make test
-make lint
-make build
+make ci
 ```
+
+`make ci` runs the same checks as the CI workflow. Run it before you open a pull request. The single steps are `make dep`, `make lint`, `make test`, and `make build`.
 
 ## Rules
 
