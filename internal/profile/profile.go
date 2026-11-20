@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/utkudarilmaz/monctl/internal/edid"
 )
@@ -56,6 +57,9 @@ func (p Profile) validate() error {
 	if p.Name == "" {
 		return errors.New("name is empty")
 	}
+	if !Printable(p.Name) {
+		return errors.New("name has a character that cannot be printed")
+	}
 	if len(p.Match.Manufacturer) != 3 {
 		return errors.New("match.manufacturer must be the three letter maker id")
 	}
@@ -74,11 +78,20 @@ func (p Profile) validate() error {
 		if in.Label == "" {
 			return fmt.Errorf("input %q has no label", in.ID)
 		}
+		if !Printable(in.Label) {
+			return fmt.Errorf("input %q has a label with a character that cannot be printed", in.ID)
+		}
 		if in.Write > 0xff || in.Read > 0xff {
 			return fmt.Errorf("input %q has a value above 255", in.ID)
 		}
 	}
 	return nil
+}
+
+// Printable reports whether text is safe to show in a terminal. Control and
+// format characters are refused because they can move the cursor or hide text.
+func Printable(text string) bool {
+	return strings.IndexFunc(text, func(r rune) bool { return !unicode.IsPrint(r) }) < 0
 }
 
 // Matches reports whether the profile applies to a monitor.
@@ -108,7 +121,7 @@ func Load(sources ...fs.FS) ([]Profile, error) {
 			}
 			p, err := Parse(data)
 			if err != nil {
-				return nil, fmt.Errorf("profile %s: %w", name, err)
+				return nil, fmt.Errorf("profile %q: %w", name, err)
 			}
 			all = append(all, p)
 		}

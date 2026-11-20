@@ -42,6 +42,8 @@ func TestLoadRejectsBadFiles(t *testing.T) {
 	for name, content := range map[string]string{
 		"not json":      `{`,
 		"unknown field": `{"input": {}}`,
+		"escape label":  `{"inputs": {"dp": {"label": "a\u001b[2Jb"}}}`,
+		"tab in label":  `{"inputs": {"dp": {"label": "a\tb"}}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := Load(write(t, content))

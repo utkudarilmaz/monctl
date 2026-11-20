@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/utkudarilmaz/monctl/internal/profile"
 )
 
 // FileName is the name of the settings file inside the config directory.
@@ -53,6 +55,11 @@ func Load(dir string) (Config, error) {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&c); err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
+	}
+	for id, in := range c.Inputs {
+		if !profile.Printable(in.Label) {
+			return Config{}, fmt.Errorf("%s: input %q has a label with a character that cannot be printed", path, id)
+		}
 	}
 	return c, nil
 }

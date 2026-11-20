@@ -38,6 +38,9 @@ func TestParseRejectsBadProfiles(t *testing.T) {
 		"bad input id":      `{"name":"x","match":{"manufacturer":"TST","productCode":"0x00ab"},"inputs":[{"id":"DP 1","label":"a"}]}`,
 		"duplicate input":   `{"name":"x","match":{"manufacturer":"TST","productCode":"0x00ab"},"inputs":[{"id":"dp","label":"a"},{"id":"dp","label":"b"}]}`,
 		"no label":          `{"name":"x","match":{"manufacturer":"TST","productCode":"0x00ab"},"inputs":[{"id":"dp"}]}`,
+		"escape in name":    `{"name":"x\u001b[2J","match":{"manufacturer":"TST","productCode":"0x00ab"}}`,
+		"newline in label":  `{"name":"x","match":{"manufacturer":"TST","productCode":"0x00ab"},"inputs":[{"id":"dp","label":"a\nb"}]}`,
+		"hidden text label": `{"name":"x","match":{"manufacturer":"TST","productCode":"0x00ab"},"inputs":[{"id":"dp","label":"a\u202eb"}]}`,
 		"value too large":   `{"name":"x","match":{"manufacturer":"TST","productCode":"0x00ab"},"inputs":[{"id":"dp","label":"a","write":256}]}`,
 	}
 	for name, data := range tests {

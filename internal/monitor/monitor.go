@@ -4,6 +4,7 @@ package monitor
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/utkudarilmaz/monctl/internal/config"
@@ -122,6 +123,7 @@ func (m *Monitor) AdjustBrightness(delta int) (Level, error) {
 	if err != nil {
 		return Level{}, err
 	}
+	delta = max(-math.MaxUint16, min(delta, math.MaxUint16))
 	return m.writeBrightness(level.Current+delta, level.Max)
 }
 

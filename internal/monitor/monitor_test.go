@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -65,7 +66,7 @@ func TestSetBrightnessClamps(t *testing.T) {
 }
 
 func TestAdjustBrightnessClamps(t *testing.T) {
-	tests := []struct{ delta, want int }{{10, 60}, {-10, 40}, {70, 100}, {-70, 0}}
+	tests := []struct{ delta, want int }{{10, 60}, {-10, 40}, {70, 100}, {-70, 0}, {math.MaxInt, 100}, {math.MinInt, 0}}
 	for _, tt := range tests {
 		m, _ := newMonitor(testProfile, config.Config{})
 		level, err := m.AdjustBrightness(tt.delta)
