@@ -1,0 +1,89 @@
+GO ?= $(shell command -v go)
+
+APPLICATION := monctl
+BIN_DIR     := bin
+BINARY      := $(BIN_DIR)/$(APPLICATION)
+
+GOLANGCI_LINT_VERSION := v2.15.0
+GOLANGCI_LINT         := $(BIN_DIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+GOLANGCI_LINT_ARCHIVE := golangci-lint-$(GOLANGCI_LINT_VERSION:v%=%)-$(shell $(GO) env GOHOSTOS)-$(shell $(GO) env GOHOSTARCH)
+GOLANGCI_LINT_TARBALL := $(BIN_DIR)/$(GOLANGCI_LINT_ARCHIVE).tar.gz
+GOLANGCI_LINT_URL     := https://github.com/golangci/golangci-lint/releases/download/$(GOLANGCI_LINT_VERSION)/$(GOLANGCI_LINT_ARCHIVE).tar.gz
+GOLANGCI_LINT_SUMS    := .golangci-lint.sha256
+
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null)
+VERSION := $(if $(strip $(VERSION)),$(VERSION),dev)
+export MONCTL_VERSION := $(VERSION)
+
+.DEFAULT_GOAL := help
+
+.PHONY: help
+help:
+	@echo ""
+	@echo "\033[1mUsage:\033[0m"
+	@echo "  make <target>"
+	@echo ""
+	@echo "\033[1mDevelopment:\033[0m"
+	@grep -E '^(dep|lint|test|clean):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "\033[1mBuild:\033[0m"
+	@grep -E '^(build):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "\033[1mCI:\033[0m"
+	@grep -E '^(ci):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "\033[1mVariables:\033[0m"
+	@echo "  \033[36mGO\033[0m          $(GO)"
+	@echo "  \033[36mVERSION\033[0m     $(VERSION)"
+	@echo "  \033[36mLINTER\033[0m      golangci-lint $(GOLANGCI_LINT_VERSION)"
+	@echo ""
+
+# =============================================================================
+# Development
+# =============================================================================
+
+.PHONY: dep
+dep: ## Check that go.mod is tidy and dependencies are intact
+	@$(GO) mod tidy -diff
+	@$(GO) mod verify
+
+$(GOLANGCI_LINT):
+	@mkdir -p $(BIN_DIR)
+	@grep -q " $(GOLANGCI_LINT_ARCHIVE).tar.gz$$" $(GOLANGCI_LINT_SUMS) || \
+		{ echo "no pinned checksum for $(GOLANGCI_LINT_ARCHIVE) in $(GOLANGCI_LINT_SUMS)"; exit 1; }
+	@curl -sSfL -o $(GOLANGCI_LINT_TARBALL) $(GOLANGCI_LINT_URL)
+	@grep " $(GOLANGCI_LINT_ARCHIVE).tar.gz$$" $(GOLANGCI_LINT_SUMS) | sed 's|  |  $(BIN_DIR)/|' | \
+		{ if command -v sha256sum >/dev/null 2>&1; then sha256sum -c -; else shasum -a 256 -c -; fi; } >/dev/null || \
+		{ rm -f $(GOLANGCI_LINT_TARBALL); echo "checksum mismatch for $(GOLANGCI_LINT_ARCHIVE)"; exit 1; }
+	@tar -xzf $(GOLANGCI_LINT_TARBALL) -C $(BIN_DIR) --strip-components=1 $(GOLANGCI_LINT_ARCHIVE)/golangci-lint
+	@mv $(BIN_DIR)/golangci-lint $@
+	@rm -f $(GOLANGCI_LINT_TARBALL)
+
+.PHONY: lint
+lint: $(GOLANGCI_LINT) ## Run linters, downloading the pinned linter on first use
+	@$(GOLANGCI_LINT) run ./...
+
+.PHONY: test
+test: ## Run tests with the race detector and coverage
+	@$(GO) test -race -cover ./...
+
+.PHONY: clean
+clean: ## Remove built files and the downloaded linter
+	@rm -rf $(BIN_DIR) dist
+
+# =============================================================================
+# Build
+# =============================================================================
+
+.PHONY: build
+build: ## Build monctl for this machine
+	@mkdir -p $(BIN_DIR)
+	@$(GO) build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$$MONCTL_VERSION" -o $(BINARY) ./cmd/$(APPLICATION)
+	@echo "Build complete! Binary: $(BINARY)"
+
+# =============================================================================
+# CI
+# =============================================================================
+
+.PHONY: ci
+ci: dep lint test build ## Run every check the ci workflow runs
