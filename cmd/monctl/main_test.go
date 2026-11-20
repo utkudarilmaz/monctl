@@ -5,9 +5,15 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/utkudarilmaz/monctl/internal/bus"
+	"github.com/utkudarilmaz/monctl/internal/config"
+	"github.com/utkudarilmaz/monctl/internal/ddc"
 	"github.com/utkudarilmaz/monctl/internal/display"
 	"github.com/utkudarilmaz/monctl/internal/edid"
+	"github.com/utkudarilmaz/monctl/internal/profile"
+	"github.com/utkudarilmaz/monctl/profiles"
 )
 
 func TestRunVersion(t *testing.T) {
@@ -47,9 +53,13 @@ func TestRunNoArgs(t *testing.T) {
 func newApp(displays []display.Display, err error) (app, *bytes.Buffer, *bytes.Buffer) {
 	var out, errOut bytes.Buffer
 	a := app{
-		stdout: &out,
-		stderr: &errOut,
-		detect: func() ([]display.Display, error) { return displays, err },
+		stdout:   &out,
+		stderr:   &errOut,
+		detect:   func() ([]display.Display, error) { return displays, err },
+		open:     func(display.Display) (bus.Bus, error) { return nil, errors.New("no bus in this test") },
+		profiles: func() ([]profile.Profile, error) { return profile.Load(profiles.FS) },
+		config:   func() (config.Config, error) { return config.Config{}, nil },
+		ddc:      []ddc.Option{ddc.WithSleep(func(time.Duration) {})},
 	}
 	return a, &out, &errOut
 }

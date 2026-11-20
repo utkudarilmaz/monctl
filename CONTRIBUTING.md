@@ -22,9 +22,36 @@ make ci
 
 ## Adding a monitor
 
-Each supported monitor is one profile file. The profile format and the `monctl probe` command that collects the needed data are not built yet. This section will be filled in when they are.
+Each supported monitor is one JSON file in `profiles/`, named after the model, for example `profiles/msi-mpg-274urdfw-e16m.json`.
 
-Until then, open an issue with your monitor's maker and model.
+1. Run `monctl probe` and `monctl list -json`. Note the manufacturer and the product code.
+2. For each port, try values with `monctl input -raw <value>` until the monitor shows that port.
+3. While the monitor shows that port, run `monctl probe` and note the input value.
+4. Write the profile and run `make ci`.
+
+Each input has two values. `write` is the value that switches to the port. `read` is the value the monitor reports while it shows the port. They can differ: on the MSI, DisplayPort is write 5 and read 7. Trust what you measure. The capabilities list a monitor reports can be wrong.
+
+```json
+{
+  "name": "MSI MPG 274URDFW E16M",
+  "match": {
+    "manufacturer": "MSI",
+    "productCode": "0x3cf0"
+  },
+  "inputs": [
+    { "id": "dp", "label": "DisplayPort", "write": 5, "read": 7 },
+    { "id": "usbc", "label": "USB-C", "write": 8, "read": 8 }
+  ]
+}
+```
+
+- `manufacturer` is the three letter maker id.
+- `productCode` is `0x` and four lower case hex digits, as `monctl probe` prints it.
+- Input `id` is lower case letters and digits, starting with a letter, and unique in the file.
+- Every input needs a `label`.
+- `write` and `read` are from 0 to 255.
+
+`make ci` checks every shipped profile. `monctl probe` output has no serial number, so it is safe to post in an issue or pull request.
 
 ## Safety
 
