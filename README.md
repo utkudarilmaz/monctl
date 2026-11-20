@@ -8,12 +8,43 @@ Change your monitor's settings from the computer instead of the buttons on the m
 
 Early development. Nothing is released yet.
 
+Works now:
+
+- `monctl list` on Linux
+
 Planned for the first release:
 
 - Raise, lower, and set screen brightness
 - Switch the monitor to another input
-- A command line tool
 - An optional tray menu on GNOME and in the macOS menu bar
+- macOS support
+
+## Usage
+
+```sh
+monctl list
+```
+
+```text
+ID                 NAME           CONNECTOR  BUS
+msi-3cf0-ab12cd34  MPG 274U E16M  DP-1       /dev/i2c-5
+```
+
+`list` shows the external monitors monctl can reach. The ID is the maker, the product code, and the serial number from the monitor. On macOS, `list` reports that the system is not supported yet.
+
+## Linux setup
+
+monctl needs access to the I2C buses of your graphics card. Install the udev rule from this repo:
+
+```sh
+sudo cp packaging/linux/60-monctl.rules /etc/udev/rules.d/
+sudo udevadm control -R
+sudo udevadm trigger -s i2c-dev
+```
+
+monctl prints these commands when it cannot open a bus.
+
+The rule gives the logged in user read and write access to every I2C bus on the graphics card, not only the ones that lead to a monitor. monctl itself only opens buses that belong to a PCI graphics device. It never opens SMBus or other system buses.
 
 ## Supported monitors
 
