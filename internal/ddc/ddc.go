@@ -29,14 +29,14 @@ const (
 	opCaps        = 0xf3
 	opCapsReply   = 0xe3
 
-	getVCPReplySize   = 11
-	capsFragmentMax   = 32
-	capsReplySize     = capsFragmentMax + 6
-	capsMaxLength     = 8192
-	waitBeforeRead    = 40 * time.Millisecond
-	waitAfterWrite    = 50 * time.Millisecond
-	waitBetweenTries  = 100 * time.Millisecond
-	defaultMaxAttempt = 3
+	getVCPReplySize  = 11
+	capsFragmentMax  = 32
+	capsReplySize    = capsFragmentMax + 6
+	capsMaxLength    = 8192
+	waitBeforeRead   = 40 * time.Millisecond
+	waitAfterWrite   = 50 * time.Millisecond
+	waitBetweenTries = 100 * time.Millisecond
+	maxAttempts      = 3
 )
 
 // Value is the state of one VCP feature.
@@ -47,9 +47,8 @@ type Value struct {
 
 // Client sends DDC/CI commands to one display.
 type Client struct {
-	bus      bus.Bus
-	sleep    func(time.Duration)
-	attempts int
+	bus   bus.Bus
+	sleep func(time.Duration)
 }
 
 // Option changes how a Client behaves.
@@ -62,7 +61,7 @@ func WithSleep(sleep func(time.Duration)) Option {
 
 // New returns a Client for the display behind b.
 func New(b bus.Bus, opts ...Option) *Client {
-	c := &Client{bus: b, sleep: time.Sleep, attempts: defaultMaxAttempt}
+	c := &Client{bus: b, sleep: time.Sleep}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -93,7 +92,7 @@ func (c *Client) GetVCP(code byte) (Value, error) {
 func (c *Client) SetVCP(code byte, value uint16) error {
 	request := encode([]byte{opSetVCP, code, byte(value >> 8), byte(value)})
 	var err error
-	for try := range c.attempts {
+	for try := range maxAttempts {
 		if try > 0 {
 			c.sleep(waitBetweenTries)
 		}
@@ -132,7 +131,7 @@ func (c *Client) Capabilities() (string, error) {
 func (c *Client) exchange(payload []byte, replySize int, check func([]byte) error) ([]byte, error) {
 	request := encode(payload)
 	var lastErr error
-	for try := range c.attempts {
+	for try := range maxAttempts {
 		if try > 0 {
 			c.sleep(waitBetweenTries)
 		}

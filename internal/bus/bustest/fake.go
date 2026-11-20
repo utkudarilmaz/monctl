@@ -63,11 +63,9 @@ func (f *Fake) Write(addr uint8, data []byte) error {
 	if f.Asleep {
 		return nil
 	}
-	payload, err := requestPayload(data)
-	if err != nil {
-		return nil
+	if payload, ok := requestPayload(data); ok {
+		f.handle(payload)
 	}
-	f.handle(payload)
 	return nil
 }
 
@@ -142,22 +140,22 @@ func (f *Fake) handle(payload []byte) {
 	}
 }
 
-func requestPayload(data []byte) ([]byte, error) {
+func requestPayload(data []byte) ([]byte, bool) {
 	if len(data) < 3 || data[0] != 0x51 {
-		return nil, errors.New("bustest: bad request")
+		return nil, false
 	}
 	n := int(data[1] & 0x7f)
 	if len(data) != n+3 {
-		return nil, errors.New("bustest: bad request length")
+		return nil, false
 	}
 	sum := byte(0x6e)
 	for _, b := range data[:len(data)-1] {
 		sum ^= b
 	}
 	if sum != data[len(data)-1] {
-		return nil, errors.New("bustest: bad request checksum")
+		return nil, false
 	}
-	return data[2 : 2+n], nil
+	return data[2 : 2+n], true
 }
 
 func frame(payload []byte) []byte {
