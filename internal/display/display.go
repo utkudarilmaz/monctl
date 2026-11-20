@@ -24,17 +24,18 @@ type Display struct {
 }
 
 func assignIDs(displays []Display) {
-	seen := map[string]int{}
+	used := map[string]bool{}
 	for i := range displays {
 		info := displays[i].Info
-		id := fmt.Sprintf("%s-%04x", strings.ToLower(info.Manufacturer), info.ProductCode)
+		base := fmt.Sprintf("%s-%04x", strings.ToLower(info.Manufacturer), info.ProductCode)
 		if info.Serial != "" {
-			id += "-" + strings.ToLower(info.Serial)
+			base += "-" + strings.ToLower(info.Serial)
 		}
-		seen[id]++
-		if n := seen[id]; n > 1 {
-			id = fmt.Sprintf("%s-%d", id, n)
+		id := base
+		for n := 2; used[id]; n++ {
+			id = fmt.Sprintf("%s-%d", base, n)
 		}
+		used[id] = true
 		displays[i].ID = id
 	}
 }
