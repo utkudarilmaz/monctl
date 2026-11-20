@@ -55,7 +55,7 @@ func (a app) list(opts options) int {
 	w := tabwriter.NewWriter(a.stdout, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintln(w, "ID\tNAME\tCONNECTOR\tBUS\tPROFILE")
 	for _, e := range entries {
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", e.ID, e.Name, e.Connector, e.Bus, orDash(e.Profile))
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", e.ID, e.Name, orDash(e.Connector), e.Bus, orDash(e.Profile))
 	}
 	_ = w.Flush()
 	return 0
