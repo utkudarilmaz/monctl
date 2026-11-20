@@ -2,7 +2,7 @@
 
 Change your monitor's settings from the computer instead of the buttons on the monitor.
 
-`monctl` talks to external monitors over DDC/CI, the control channel that runs on the video cable. It works on Debian with GNOME and on macOS with Apple Silicon.
+`monctl` talks to external monitors over DDC/CI, the control channel that runs on the video cable. It targets Debian with GNOME and macOS with Apple Silicon.
 
 ## Status
 
