@@ -17,6 +17,7 @@ import (
 	"github.com/utkudarilmaz/monctl/internal/display"
 	"github.com/utkudarilmaz/monctl/internal/monitor"
 	"github.com/utkudarilmaz/monctl/internal/profile"
+	"github.com/utkudarilmaz/monctl/internal/tray"
 	"github.com/utkudarilmaz/monctl/profiles"
 )
 
@@ -34,6 +35,7 @@ Commands:
   input <name>         Switch the monitor to another input
   input -raw <value>   Switch with a raw value, for monitors without a profile
   probe                Print what a monitor reports, to help add a new model
+  tray                 Show a menu in the system tray until you quit it
   version              Print the monctl version
 
 Flags:
@@ -66,7 +68,10 @@ type app struct {
 	profiles func() ([]profile.Profile, error)
 	config   func() (config.Config, error)
 	ddc      []ddc.Option
+	runTray  func(tray.Controller, func(error)) error
 }
+
+var errNoMonitor = errors.New("no external monitor found")
 
 type options struct {
 	display string
@@ -87,6 +92,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		open:     display.Open,
 		profiles: loadProfiles,
 		config:   loadConfig,
+		runTray:  tray.Run,
 	}.run(args)
 }
 
@@ -117,6 +123,7 @@ func (a app) run(args []string) int {
 		"brightness": a.brightness,
 		"input":      a.input,
 		"probe":      a.probe,
+		"tray":       a.tray,
 	}
 
 	switch command, ok := commands[args[0]]; {
@@ -208,7 +215,7 @@ func (a app) pick(id string) (display.Display, error) {
 	}
 	switch len(displays) {
 	case 0:
-		return display.Display{}, errors.New("no external monitor found")
+		return display.Display{}, errNoMonitor
 	case 1:
 		return displays[0], nil
 	default:

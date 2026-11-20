@@ -10,7 +10,7 @@ Early development. Nothing is released yet.
 
 Works now on Linux and on macOS with Apple Silicon: `list`, `brightness`, `input`, and `probe`. Intel Macs are not supported.
 
-Planned for the first release: an optional tray menu on GNOME and in the macOS menu bar.
+`monctl tray` works on GNOME with the AppIndicator extension and in the macOS menu bar. It has been started on both, but the menu itself has had little hands on testing so far.
 
 ## Usage
 
@@ -73,60 +73,39 @@ The keys are the input ids from `monctl input`. A label replaces the name shown,
 
 To add or override a monitor profile, put it in `~/.config/monctl/profiles/*.json`. Your profiles win over the ones shipped with monctl.
 
-## How input switching behaves
+## Tray menu
 
-- A monitor only answers on the input it is showing. A computer can send the picture to another computer, but it cannot pull it back.
-- When the monitor shows another computer, monctl says so.
-- The target computer must be awake and sending a picture. If not, the monitor finds no signal and falls back after a few seconds. A laptop with a closed lid may go to sleep when the picture leaves it.
-- After a switch, the monitor needs around ten seconds before it answers again.
+The tray is optional. The other commands work without it.
 
 ```sh
-monctl brightness        # print the brightness
-monctl brightness 40     # set it to 40
-monctl brightness +10    # raise it by 10
-monctl brightness -10    # lower it by 10
-```
-
-Brightness stays between 0 and the monitor's maximum. Each command prints the new value.
-
-```sh
-monctl input             # print the current input and the inputs you can switch to
-monctl input usbc        # switch to USB-C
+monctl tray              # show the menu until you pick Quit
+monctl tray -d msi-3cf0-ab12cd34
 ```
 
 ```text
-Current: DisplayPort (dp)
-Inputs:
-  dp    DisplayPort
-  usbc  USB-C
+Brightness: 60%
+
+Brighter (+10)
+Dimmer (-10)
+Set brightness   >  0%  25%  50%  75%  100%
+
+Send picture to
+  [x] Workstation
+  [ ] MacBook
+
+Quit
 ```
 
-Add `-json` to `list`, `brightness`, `input`, or `probe` for JSON output. With more than one monitor, pick one with `-d`:
+The inputs come from the monitor profile and use your labels from the config. The menu reads the monitor each time you open it. When the monitor shows another computer, the menu says so and its actions are greyed out. Errors go to the terminal that started `monctl tray`.
+
+GNOME shows no tray icons by default. Install the AppIndicator extension, then log out and in:
 
 ```sh
-monctl list -json
-monctl brightness 40 -d msi-3cf0-ab12cd34
+sudo apt install gnome-shell-extension-appindicator
+gnome-extensions enable ubuntu-appindicators@ubuntu.com
 ```
 
-`monctl probe` prints what a monitor reports. It helps add a new model, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor). Run `monctl` alone for the full command list.
-
-## Configuration
-
-monctl reads `~/.config/monctl/config.json`, or `$XDG_CONFIG_HOME/monctl/config.json` when that variable is set. The path is the same on Linux and macOS. The file is optional.
-
-```json
-{
-  "inputs": {
-    "dp": { "label": "Workstation" },
-    "usbc": { "label": "MacBook" },
-    "hdmi1": { "hidden": true }
-  }
-}
-```
-
-The keys are the input ids from `monctl input`. A label replaces the name shown, and you can use it as a name: `monctl input MacBook`. A hidden input leaves the list but still works by its id. Ids the monitor does not have are ignored.
-
-To add or override a monitor profile, put it in `~/.config/monctl/profiles/*.json`. Your profiles win over the ones shipped with monctl.
+`monctl tray` prints these steps when the extension is missing. macOS needs no setup. Starting the tray at login is not built yet. It comes with the packages.
 
 ## How input switching behaves
 
@@ -187,3 +166,5 @@ make ci
 ## License
 
 [MIT](LICENSE)
+
+The tray uses [fyne.io/systray](https://github.com/fyne-io/systray) (Apache-2.0) and [godbus/dbus](https://github.com/godbus/dbus) (BSD-2-Clause).
