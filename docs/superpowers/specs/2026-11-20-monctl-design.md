@@ -73,7 +73,7 @@ internal/ddc          DDC/CI packets: build, checksum, parse, get VCP, set VCP, 
 internal/bus          Bus interface and one backend per system
   bus_linux.go        /dev/i2c-* through ioctl
   bus_darwin.go       IOAVService through cgo
-  fake.go             in-memory bus for tests
+  bustest/            in-memory display for tests
 internal/edid         parse maker, product code, serial, name
 internal/profile      load and match monitor profiles
 internal/monitor      high level actions: brightness, input
@@ -122,7 +122,7 @@ Profiles describe a monitor model and are shared by everyone. What is plugged in
 
 ```yaml
 displays:
-  - match: { manufacturer: MSI, productCode: 0x3cf0
+  - match: { manufacturer: MSI, productCode: 0x3cf0 }
     inputs:
       dp1: { label: Workstation }
       usbc: { label: MacBook }
@@ -149,7 +149,9 @@ Exit code is non-zero on any failure. `-json` prints machine readable output wit
 
 ### Reliability
 
-DDC/CI is slow and loses messages. The core waits the delay the standard asks for after each command (about 50 ms after a write, 40 ms before reading a reply), retries a failed read up to 3 times, and checks every reply checksum. After setting brightness it reads the value back. After switching input it does not read back, because the monitor may no longer answer.
+DDC/CI is slow and loses messages. The core waits the delay the standard asks for after each command (about 50 ms after a write, 40 ms before reading a reply), tries each command up to 3 times, and checks every reply checksum. After setting brightness it reads the value back. After switching input it does not read back, because the monitor may no longer answer.
+
+Text from a display (EDID name, EDID serial, capabilities) keeps only printable ASCII, so a faulty or hostile monitor cannot put control characters in the output. A capabilities read stops with an error after 512 fragments or 8192 bytes, so a display that never ends its reply cannot hang the tool.
 
 ### Tray
 
