@@ -39,8 +39,6 @@ make test
 make lint
 ```
 
-The design is described in [docs/superpowers/specs/2026-11-20-monctl-design.md](docs/superpowers/specs/2026-11-20-monctl-design.md).
-
 ## License
 
 [MIT](LICENSE)
