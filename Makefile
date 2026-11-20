@@ -17,12 +17,13 @@ export MONCTL_VERSION := $(VERSION)
 
 GOOS         := $(shell $(GO) env GOOS)
 GOARCH       := $(shell $(GO) env GOARCH)
+export GOARCH
 DIST_DIR     := dist
 PLAIN        := $(VERSION:v%=%)
 DEB_VERSION  := $(if $(filter 0% 1% 2% 3% 4% 5% 6% 7% 8% 9%,$(PLAIN)),$(PLAIN),0.0.0+$(PLAIN))
 STAGE        := $(DIST_DIR)/$(APPLICATION)_$(PLAIN)_$(GOOS)_$(GOARCH)
 DEB_ROOT     := $(DIST_DIR)/deb_$(GOARCH)
-PACKAGING_OS := $(if $(filter darwin,$(GOOS)),macos,$(GOOS))
+PACKAGING_FILES := $(if $(filter darwin,$(GOOS)),$(wildcard packaging/macos/*.plist),packaging/linux/60-monctl.rules packaging/linux/monctl-tray.desktop)
 
 .DEFAULT_GOAL := help
 
@@ -93,14 +94,15 @@ $(STAGE)/licenses:
 	@mkdir -p $@
 	@for module in $$($(GO) list -deps -f '{{with .Module}}{{if not .Main}}{{.Path}}{{end}}{{end}}' ./cmd/$(APPLICATION) | sort -u); do \
 		dir=$$($(GO) list -m -f '{{.Dir}}' $$module); \
-		cp $$dir/LICENSE $@/$$(echo $$module | tr '/' '_').txt || exit 1; \
+		install -m 644 $$dir/LICENSE $@/$$(echo $$module | tr '/' '_').txt || exit 1; \
 	done
 
 .PHONY: dist
 dist: $(STAGE)/licenses ## Build the release archive for this machine
 	@$(GO) build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$$MONCTL_VERSION" -o $(STAGE)/$(APPLICATION) ./cmd/$(APPLICATION)
 	@cp LICENSE README.md $(STAGE)/
-	@cp -R packaging/$(PACKAGING_OS) $(STAGE)/packaging
+	@mkdir -p $(STAGE)/packaging
+	@install -m 644 $(PACKAGING_FILES) $(STAGE)/packaging/
 	@tar -czf $(STAGE).tar.gz -C $(DIST_DIR) $(notdir $(STAGE))
 	@echo "Archive: $(STAGE).tar.gz"
 
@@ -114,6 +116,7 @@ deb: dist ## Build the Debian package from the release archive
 	@cp LICENSE $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/copyright
 	@cp -R $(STAGE)/licenses $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
 	@cp packaging/linux/postinst $(DEB_ROOT)/DEBIAN/postinst
+	@chmod -R u=rwX,go=rX $(DEB_ROOT)
 	@chmod 755 $(DEB_ROOT)/DEBIAN/postinst $(DEB_ROOT)/usr/bin/$(APPLICATION)
 	@sed -e 's/@VERSION@/$(DEB_VERSION)/' -e 's/@ARCH@/$(GOARCH)/' packaging/linux/control > $(DEB_ROOT)/DEBIAN/control
 	@dpkg-deb --root-owner-group --build $(DEB_ROOT) $(DIST_DIR)/$(APPLICATION)_$(DEB_VERSION)_$(GOARCH).deb >/dev/null
