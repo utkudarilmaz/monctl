@@ -10,7 +10,7 @@ Early development. Nothing is released yet.
 
 Works now on Linux and on macOS with Apple Silicon: `list`, `brightness`, `input`, and `probe`. Intel Macs are not supported.
 
-Planned for the first release: an optional tray menu on GNOME and in the macOS menu bar.
+`monctl tray` works on GNOME with the AppIndicator extension and in the macOS menu bar. It has been started on both, but the menu itself has had little hands on testing so far.
 
 ## Usage
 
@@ -73,6 +73,40 @@ The keys are the input ids from `monctl input`. A label replaces the name shown,
 
 To add or override a monitor profile, put it in `~/.config/monctl/profiles/*.json`. Your profiles win over the ones shipped with monctl.
 
+## Tray menu
+
+The tray is optional. The other commands work without it.
+
+```sh
+monctl tray              # show the menu until you pick Quit
+monctl tray -d msi-3cf0-ab12cd34
+```
+
+```text
+Brightness: 60%
+
+Brighter (+10)
+Dimmer (-10)
+Set brightness   >  0%  25%  50%  75%  100%
+
+Send picture to
+  [x] Workstation
+  [ ] MacBook
+
+Quit
+```
+
+The inputs come from the monitor profile and use your labels from the config. The menu reads the monitor each time you open it. When the monitor shows another computer, the menu says so and its actions are greyed out. Errors go to the terminal that started `monctl tray`.
+
+GNOME shows no tray icons by default. Install the AppIndicator extension, then log out and in:
+
+```sh
+sudo apt install gnome-shell-extension-appindicator
+gnome-extensions enable ubuntu-appindicators@ubuntu.com
+```
+
+`monctl tray` prints these steps when the extension is missing. macOS needs no setup. Starting the tray at login is not built yet. It comes with the packages.
+
 ## How input switching behaves
 
 - A monitor only answers on the input it is showing. A computer can send the picture to another computer, but it cannot pull it back.
@@ -132,3 +166,5 @@ make ci
 ## License
 
 [MIT](LICENSE)
+
+The tray uses [fyne.io/systray](https://github.com/fyne-io/systray) (Apache-2.0) and [godbus/dbus](https://github.com/godbus/dbus) (BSD-2-Clause).
