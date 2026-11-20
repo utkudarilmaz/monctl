@@ -149,8 +149,8 @@ func TestGetVCPGivesUp(t *testing.T) {
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
-			if got := len(f.Writes); got > 3 {
-				t.Fatalf("sent %d requests, want at most 3", got)
+			if got := len(f.Writes); got != 3 {
+				t.Fatalf("sent %d requests, want 3", got)
 			}
 		})
 	}
@@ -181,6 +181,103 @@ func TestSetVCPReturnsBusError(t *testing.T) {
 	}
 }
 
+func TestVCPValuesAreBigEndian(t *testing.T) {
+	s := &scripted{replies: [][]byte{
+		{0x6e, 0x88, 0x02, 0x00, 0x10, 0x00, 0x12, 0x34, 0xab, 0xcd, 0xe4},
+	}}
+	c, _ := newClient(s)
+
+	got, err := c.GetVCP(0x10)
+	if err != nil {
+		t.Fatalf("GetVCP: %v", err)
+	}
+	if want := (ddc.Value{Current: 0xabcd, Max: 0x1234}); got != want {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+
+	if err := c.SetVCP(0x10, 0x1234); err != nil {
+		t.Fatalf("SetVCP: %v", err)
+	}
+	if want := []byte{0x51, 0x84, 0x03, 0x10, 0x12, 0x34, 0x8e}; !bytes.Equal(s.writes[1], want) {
+		t.Fatalf("request = % x, want % x", s.writes[1], want)
+	}
+}
+
+func TestGetVCPRejectsMalformedReplies(t *testing.T) {
+	cases := map[string]struct {
+		reply []byte
+		want  error
+	}{
+		"nothing on the bus":   {nil, ddc.ErrNoReply},
+		"wrong source address": {[]byte{0x6f, 0x88, 0x02, 0x00, 0x10, 0x00, 0x00, 0x64, 0x00, 0x32, 0xf3}, ddc.ErrNoReply},
+		"length past buffer":   {[]byte{0x6e, 0x8f, 0x02, 0x00, 0x10, 0x00, 0x00, 0x64, 0x00, 0x32, 0xf5}, ddc.ErrBadReply},
+		"payload too short":    {[]byte{0x6e, 0x83, 0x02, 0x00, 0x10, 0xaf}, ddc.ErrBadReply},
+		"wrong opcode":         {[]byte{0x6e, 0x88, 0x03, 0x00, 0x10, 0x00, 0x00, 0x64, 0x00, 0x32, 0xf3}, ddc.ErrBadReply},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			s := &scripted{replies: [][]byte{tc.reply, tc.reply, tc.reply}}
+			c, _ := newClient(s)
+
+			_, err := c.GetVCP(0x10)
+
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("err = %v, want %v", err, tc.want)
+			}
+			if len(s.writes) != 3 {
+				t.Fatalf("sent %d requests, want 3", len(s.writes))
+			}
+		})
+	}
+}
+
+func TestGetVCPWaitsBetweenRetries(t *testing.T) {
+	f := bustest.NewFake()
+	f.VCP[0x10] = bustest.VCP{Current: 7, Max: 100}
+	f.FailReads = 2
+	c, slept := newClient(f)
+
+	if _, err := c.GetVCP(0x10); err != nil {
+		t.Fatalf("GetVCP: %v", err)
+	}
+
+	var retryWaits int
+	for _, d := range *slept {
+		if d >= 100*time.Millisecond {
+			retryWaits++
+		}
+	}
+	if retryWaits != 2 {
+		t.Fatalf("slept %v, want two waits of at least 100ms between tries", *slept)
+	}
+}
+
+func TestSetVCPRetries(t *testing.T) {
+	f := bustest.NewFake()
+	f.VCP[0x10] = bustest.VCP{Current: 1, Max: 100}
+	f.FailWrites = 2
+	c, _ := newClient(f)
+
+	if err := c.SetVCP(0x10, 42); err != nil {
+		t.Fatalf("SetVCP: %v", err)
+	}
+	if got := f.VCP[0x10].Current; got != 42 {
+		t.Fatalf("Current = %d, want 42", got)
+	}
+}
+
+func TestSetVCPGivesUpAfterThreeTries(t *testing.T) {
+	f := bustest.NewFake()
+	f.FailWrites = 99
+	c, _ := newClient(f)
+
+	_ = c.SetVCP(0x10, 1)
+
+	if tries := 99 - f.FailWrites; tries != 3 {
+		t.Fatalf("tried %d writes, want 3", tries)
+	}
+}
+
 func TestCapabilitiesJoinsFragments(t *testing.T) {
 	want := "(prot(monitor)type(lcd)model(MPG 274U E16M)vcp(10 12 60(0F 11 12 1B)))"
 	if len(want) <= 64 {
@@ -197,6 +294,57 @@ func TestCapabilitiesJoinsFragments(t *testing.T) {
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
+}
+
+func TestCapabilitiesReadsPastOffset255(t *testing.T) {
+	want := "(" + strings.Repeat("vcp(10 12) ", 30) + ")"
+	f := bustest.NewFake()
+	f.Capabilities = want
+	c, _ := newClient(f)
+
+	got, err := c.Capabilities()
+	if err != nil {
+		t.Fatalf("Capabilities: %v", err)
+	}
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	if want := []byte{0x51, 0x83, 0xf3, 0x01, 0x00, 0x4e}; !bytes.Equal(f.Writes[8], want) {
+		t.Fatalf("request at offset 256 = % x, want % x", f.Writes[8], want)
+	}
+}
+
+func TestCapabilitiesRejectsReplyForWrongOffset(t *testing.T) {
+	wrong := []byte{0x6e, 0x84, 0xe3, 0x00, 0x20, 'x', 0x00}
+	wrong[6] = xorAll(0x50, wrong[:6])
+	s := &scripted{replies: [][]byte{wrong, wrong, wrong}}
+	c, _ := newClient(s)
+
+	_, err := c.Capabilities()
+
+	if !errors.Is(err, ddc.ErrBadReply) {
+		t.Fatalf("err = %v, want ErrBadReply", err)
+	}
+}
+
+func TestCapabilitiesDisplayAsleep(t *testing.T) {
+	f := bustest.NewFake()
+	f.Capabilities = "(vcp(10))"
+	f.Asleep = true
+	c, _ := newClient(f)
+
+	_, err := c.Capabilities()
+
+	if !errors.Is(err, ddc.ErrNoReply) {
+		t.Fatalf("err = %v, want ErrNoReply", err)
+	}
+}
+
+func xorAll(seed byte, b []byte) byte {
+	for _, v := range b {
+		seed ^= v
+	}
+	return seed
 }
 
 func TestCapabilitiesDropsControlBytes(t *testing.T) {

@@ -64,6 +64,20 @@ func TestParseFallsBackToNumericSerial(t *testing.T) {
 	}
 }
 
+func TestParsePrefersTextSerial(t *testing.T) {
+	block := msiBlock(t)
+	block[12], block[13], block[14], block[15] = 0x78, 0x56, 0x34, 0x12
+	fixChecksum(block)
+
+	got, err := Parse(block)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if got.Serial != "0000000000000" {
+		t.Fatalf("Serial = %q, want the text serial %q", got.Serial, "0000000000000")
+	}
+}
+
 func TestParseKeepsOnlyPrintableText(t *testing.T) {
 	block := msiBlock(t)
 	block[8], block[9] = 0x00, 0x00
