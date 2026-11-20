@@ -8,8 +8,8 @@ GOLANGCI_LINT_VERSION := v2.15.0
 GOLANGCI_LINT         := $(BIN_DIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 GOLANGCI_LINT_ARCHIVE := golangci-lint-$(GOLANGCI_LINT_VERSION:v%=%)-$(shell $(GO) env GOHOSTOS)-$(shell $(GO) env GOHOSTARCH)
 GOLANGCI_LINT_TARBALL := $(BIN_DIR)/$(GOLANGCI_LINT_ARCHIVE).tar.gz
-GOLANGCI_LINT_URL     := https://github.com/golangci/golangci-lint/releases/download/$(GOLANGCI_LINT_VERSION)/$(GOLANGCI_LINT_ARCHIVE).tar.gz
-GOLANGCI_LINT_SUMS    := .golangci-lint.sha256
+GOLANGCI_LINT_RELEASE := https://github.com/golangci/golangci-lint/releases/download/$(GOLANGCI_LINT_VERSION)
+GOLANGCI_LINT_SUMS    := $(BIN_DIR)/golangci-lint-$(GOLANGCI_LINT_VERSION:v%=%)-checksums.txt
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null)
 VERSION := $(if $(strip $(VERSION)),$(VERSION),dev)
@@ -49,15 +49,14 @@ dep: ## Check that go.mod is tidy and dependencies are intact
 
 $(GOLANGCI_LINT):
 	@mkdir -p $(BIN_DIR)
-	@grep -q " $(GOLANGCI_LINT_ARCHIVE).tar.gz$$" $(GOLANGCI_LINT_SUMS) || \
-		{ echo "no pinned checksum for $(GOLANGCI_LINT_ARCHIVE) in $(GOLANGCI_LINT_SUMS)"; exit 1; }
-	@curl -sSfL -o $(GOLANGCI_LINT_TARBALL) $(GOLANGCI_LINT_URL)
+	@curl -sSfL -o $(GOLANGCI_LINT_TARBALL) $(GOLANGCI_LINT_RELEASE)/$(GOLANGCI_LINT_ARCHIVE).tar.gz
+	@curl -sSfL -o $(GOLANGCI_LINT_SUMS) $(GOLANGCI_LINT_RELEASE)/$(notdir $(GOLANGCI_LINT_SUMS))
 	@grep " $(GOLANGCI_LINT_ARCHIVE).tar.gz$$" $(GOLANGCI_LINT_SUMS) | sed 's|  |  $(BIN_DIR)/|' | \
 		{ if command -v sha256sum >/dev/null 2>&1; then sha256sum -c -; else shasum -a 256 -c -; fi; } >/dev/null || \
-		{ rm -f $(GOLANGCI_LINT_TARBALL); echo "checksum mismatch for $(GOLANGCI_LINT_ARCHIVE)"; exit 1; }
+		{ rm -f $(GOLANGCI_LINT_TARBALL) $(GOLANGCI_LINT_SUMS); echo "checksum mismatch for $(GOLANGCI_LINT_ARCHIVE)"; exit 1; }
 	@tar -xzf $(GOLANGCI_LINT_TARBALL) -C $(BIN_DIR) --strip-components=1 $(GOLANGCI_LINT_ARCHIVE)/golangci-lint
 	@mv $(BIN_DIR)/golangci-lint $@
-	@rm -f $(GOLANGCI_LINT_TARBALL)
+	@rm -f $(GOLANGCI_LINT_TARBALL) $(GOLANGCI_LINT_SUMS)
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT) ## Run linters, downloading the pinned linter on first use
