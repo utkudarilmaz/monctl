@@ -10,7 +10,7 @@ You need Go 1.25 or newer. On macOS, also install the Xcode command line tools f
 make ci
 ```
 
-`make ci` runs the same checks as the CI workflow. Run it before you open a pull request. The single steps are `make dep`, `make lint`, `make test`, and `make build`.
+`make ci` runs the same checks as the CI workflow. Run it before you open a pull request. The single steps are `make dep`, `make lint`, `make test`, `make build`, and `make package`. `make package` builds the release archive in `dist/`, and on Linux also the `.deb`.
 
 ## Rules
 
@@ -58,3 +58,12 @@ Each input has two values. `write` is the value that switches to the port. `read
 On Linux, `monctl` writes to I2C buses. It must only ever open buses that belong to a graphics card. Never add code that opens SMBus or other system buses, because writing to them can damage hardware.
 
 On macOS, `monctl` only opens display services marked external. Keep it that way.
+
+## Releasing
+
+Maintainers only.
+
+1. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version.
+2. Push a tag such as `v0.1.0`.
+3. The release workflow builds Linux amd64, Linux arm64, and macOS arm64. It creates a draft GitHub release with the archives, the `.deb` files, and `checksums.txt`.
+4. Check the draft and publish it by hand.
