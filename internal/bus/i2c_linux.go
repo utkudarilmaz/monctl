@@ -50,7 +50,6 @@ func (b *i2c) Read(addr uint8, n int) ([]byte, error) {
 	return out, nil
 }
 
-// DeviceNumber returns the major and minor number of the opened device.
 func (b *i2c) DeviceNumber() (major, minor uint32, err error) {
 	var st syscall.Stat_t
 	if err := syscall.Fstat(int(b.file.Fd()), &st); err != nil {

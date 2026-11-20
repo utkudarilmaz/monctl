@@ -1,5 +1,4 @@
-# Give the logged in user access to the I2C buses of graphics cards, which
-# carry the monitor control channel. Buses of other devices are left alone.
-# Note: this covers every I2C bus on the graphics card, not only the ones
-# that lead to a monitor.
+# Gives the logged in user access to the I2C buses of graphics cards, which
+# carry the monitor control channel. This covers every I2C bus on the card,
+# not only the ones that lead to a monitor.
 SUBSYSTEM=="i2c-dev", KERNEL=="i2c-[0-9]*", SUBSYSTEMS=="pci", ATTRS{class}=="0x03[0-9a-f][0-9a-f][0-9a-f][0-9a-f]", TAG+="uaccess"
