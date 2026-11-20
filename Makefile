@@ -5,7 +5,11 @@ BIN_DIR     := bin
 BINARY      := $(BIN_DIR)/$(APPLICATION)
 
 GOLANGCI_LINT_VERSION := v2.15.0
-GOLANGCI_LINT         := $(BIN_DIR)/golangci-lint
+GOLANGCI_LINT         := $(BIN_DIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+GOLANGCI_LINT_ARCHIVE := golangci-lint-$(GOLANGCI_LINT_VERSION:v%=%)-$(shell $(GO) env GOHOSTOS)-$(shell $(GO) env GOHOSTARCH)
+GOLANGCI_LINT_TARBALL := $(BIN_DIR)/$(GOLANGCI_LINT_ARCHIVE).tar.gz
+GOLANGCI_LINT_URL     := https://github.com/golangci/golangci-lint/releases/download/$(GOLANGCI_LINT_VERSION)/$(GOLANGCI_LINT_ARCHIVE).tar.gz
+GOLANGCI_LINT_SUMS    := .golangci-lint.sha256
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null)
 VERSION := $(if $(strip $(VERSION)),$(VERSION),dev)
@@ -20,7 +24,7 @@ help:
 	@echo "  make <target>"
 	@echo ""
 	@echo "\033[1mDevelopment:\033[0m"
-	@grep -E '^(dep|tools|lint|test|clean):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(dep|lint|test|clean):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1mBuild:\033[0m"
 	@grep -E '^(build):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -43,13 +47,20 @@ dep: ## Check that go.mod is tidy and dependencies are intact
 	@$(GO) mod tidy -diff
 	@$(GO) mod verify
 
-.PHONY: tools
-tools: ## Install the pinned linter into bin
-	@$(GOLANGCI_LINT) version 2>/dev/null | grep -q "version $(GOLANGCI_LINT_VERSION:v%=%) " || \
-		GOTOOLCHAIN=auto GOBIN=$(abspath $(BIN_DIR)) $(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+$(GOLANGCI_LINT):
+	@mkdir -p $(BIN_DIR)
+	@grep -q " $(GOLANGCI_LINT_ARCHIVE).tar.gz$$" $(GOLANGCI_LINT_SUMS) || \
+		{ echo "no pinned checksum for $(GOLANGCI_LINT_ARCHIVE) in $(GOLANGCI_LINT_SUMS)"; exit 1; }
+	@curl -sSfL -o $(GOLANGCI_LINT_TARBALL) $(GOLANGCI_LINT_URL)
+	@grep " $(GOLANGCI_LINT_ARCHIVE).tar.gz$$" $(GOLANGCI_LINT_SUMS) | sed 's|  |  $(BIN_DIR)/|' | \
+		{ if command -v sha256sum >/dev/null 2>&1; then sha256sum -c -; else shasum -a 256 -c -; fi; } >/dev/null || \
+		{ rm -f $(GOLANGCI_LINT_TARBALL); echo "checksum mismatch for $(GOLANGCI_LINT_ARCHIVE)"; exit 1; }
+	@tar -xzf $(GOLANGCI_LINT_TARBALL) -C $(BIN_DIR) --strip-components=1 $(GOLANGCI_LINT_ARCHIVE)/golangci-lint
+	@mv $(BIN_DIR)/golangci-lint $@
+	@rm -f $(GOLANGCI_LINT_TARBALL)
 
 .PHONY: lint
-lint: tools ## Run linters
+lint: $(GOLANGCI_LINT) ## Run linters, downloading the pinned linter on first use
 	@$(GOLANGCI_LINT) run ./...
 
 .PHONY: test
@@ -57,7 +68,7 @@ test: ## Run tests with the race detector and coverage
 	@$(GO) test -race -cover ./...
 
 .PHONY: clean
-clean: ## Remove built files and installed tools
+clean: ## Remove built files and the downloaded linter
 	@rm -rf $(BIN_DIR) dist
 
 # =============================================================================
