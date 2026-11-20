@@ -44,17 +44,40 @@ func panelEDID(t *testing.T) []byte {
 }
 
 type machine struct {
-	t      *testing.T
-	root   string
-	edids  map[string][]byte
-	denied map[string]bool
-	opened []string
+	t       *testing.T
+	root    string
+	edids   map[string][]byte
+	denied  map[string]bool
+	minorOf map[string]uint32
+	opened  []string
+	writes  int
+}
+
+type fakeBus struct {
+	*bustest.Fake
+	m     *machine
+	minor uint32
+}
+
+func (f fakeBus) Write(addr uint8, data []byte) error {
+	f.m.writes++
+	return f.Fake.Write(addr, data)
+}
+
+func (f fakeBus) DeviceNumber() (uint32, uint32, error) {
+	return 89, f.minor, nil
 }
 
 func newMachine(t *testing.T) *machine {
 	t.Helper()
-	m := &machine{t: t, root: t.TempDir(), edids: map[string][]byte{}, denied: map[string]bool{}}
+	m := &machine{
+		t: t, root: t.TempDir(),
+		edids: map[string][]byte{}, denied: map[string]bool{}, minorOf: map[string]uint32{},
+	}
 	m.mkdir("sys/bus/i2c/devices")
+	m.mkdir("sys/bus/pci")
+	m.mkdir("sys/bus/sdio")
+	m.mkdir("sys/dev/char")
 	m.mkdir("sys/class/drm")
 	return m
 }
@@ -84,13 +107,21 @@ func (m *machine) link(target, rel string) {
 }
 
 func (m *machine) pciDevice(rel, class string) {
+	m.device(rel, class, "pci")
+}
+
+func (m *machine) device(rel, class, subsystem string) {
 	m.write(filepath.Join("sys/devices", rel, "class"), []byte(class+"\n"))
+	m.link(filepath.Join(m.root, "sys/bus", subsystem), filepath.Join("sys/devices", rel, "subsystem"))
 }
 
 func (m *machine) i2cBus(n int, parent string, edid []byte) {
 	name := "i2c-" + strconv.Itoa(n)
 	dir := m.mkdir(filepath.Join("sys/devices", parent, name))
 	m.link(dir, filepath.Join("sys/bus/i2c/devices", name))
+	char := m.mkdir(filepath.Join("sys/devices", parent, name, "i2c-dev", name))
+	m.link(char, filepath.Join("sys/dev/char", "89:"+strconv.Itoa(n)))
+	m.minorOf[name] = uint32(n)
 	if edid != nil {
 		m.edids[filepath.Join(m.root, "dev", name)] = edid
 	}
@@ -115,7 +146,7 @@ func (m *machine) detector() detector {
 			}
 			f := bustest.NewFake()
 			f.EDID = m.edids[path]
-			return f, nil
+			return fakeBus{Fake: f, m: m, minor: m.minorOf[filepath.Base(path)]}, nil
 		},
 	}
 }
@@ -265,5 +296,89 @@ func TestDetectNothingAttached(t *testing.T) {
 
 	if err != nil || len(got) != 0 {
 		t.Fatalf("got %+v, %v, want nothing and no error", got, err)
+	}
+}
+
+func TestDetectIgnoresClassOnNonPCIParent(t *testing.T) {
+	m := newMachine(t)
+	m.device("platform/mmc0/mmc0:0001", "0x030000", "sdio")
+	m.i2cBus(3, "platform/mmc0/mmc0:0001", msiEDID(t))
+
+	got, err := m.detector().detect()
+
+	if err != nil || len(got) != 0 {
+		t.Fatalf("got %+v, %v, want nothing", got, err)
+	}
+	if len(m.opened) != 0 {
+		t.Fatalf("opened %v, want nothing opened", m.opened)
+	}
+}
+
+func TestDetectRejectsMalformedClass(t *testing.T) {
+	m := newMachine(t)
+	m.pciDevice(nvidia, "0x03")
+	m.i2cBus(13, nvidia, msiEDID(t))
+
+	got, _ := m.detector().detect()
+
+	if len(got) != 0 || len(m.opened) != 0 {
+		t.Fatalf("got %+v, opened %v, want nothing", got, m.opened)
+	}
+}
+
+func TestDetectDoesNotWriteWhenBusNumberWasReused(t *testing.T) {
+	m := newMachine(t)
+	m.pciDevice(nvidia, "0x030000")
+	m.pciDevice(smbus, "0x0c0500")
+	m.i2cBus(0, smbus, nil)
+	m.i2cBus(13, nvidia, msiEDID(t))
+	m.minorOf["i2c-13"] = 0
+
+	got, err := m.detector().detect()
+
+	if err != nil || len(got) != 0 {
+		t.Fatalf("got %+v, %v, want nothing", got, err)
+	}
+	if m.writes != 0 {
+		t.Fatalf("wrote %d times to a bus that is not a graphics bus", m.writes)
+	}
+}
+
+func TestOpenChecksTheBusAgain(t *testing.T) {
+	m := newMachine(t)
+	m.pciDevice(nvidia, "0x030000")
+	m.pciDevice(smbus, "0x0c0500")
+	m.i2cBus(0, smbus, nil)
+	m.i2cBus(13, nvidia, msiEDID(t))
+	d := m.detector()
+
+	if _, err := d.openVerified(d.busPath(0)); !errors.Is(err, ErrNotGraphicsBus) {
+		t.Fatalf("err = %v, want ErrNotGraphicsBus", err)
+	}
+	b, err := d.openVerified(d.busPath(13))
+	if err != nil {
+		t.Fatalf("openVerified: %v", err)
+	}
+	_ = b.Close()
+}
+
+func TestBusNumber(t *testing.T) {
+	cases := map[string]struct {
+		n  int
+		ok bool
+	}{
+		"i2c-13":  {13, true},
+		"i2c-0":   {0, true},
+		"i2c-+4":  {0, false},
+		"i2c--1":  {0, false},
+		"i2c-":    {0, false},
+		"i2c-ITE": {0, false},
+		"spi-1":   {0, false},
+	}
+	for name, want := range cases {
+		n, ok := busNumber(name)
+		if n != want.n || ok != want.ok {
+			t.Errorf("busNumber(%q) = %d, %v, want %d, %v", name, n, ok, want.n, want.ok)
+		}
 	}
 }

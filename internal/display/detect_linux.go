@@ -2,9 +2,11 @@ package display
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,7 +15,7 @@ import (
 	"github.com/utkudarilmaz/monctl/internal/edid"
 )
 
-const displayClassPrefix = "0x03"
+var displayClass = regexp.MustCompile(`^0x03[0-9a-f]{4}$`)
 
 var builtInConnectors = []string{"eDP", "LVDS", "DSI"}
 
@@ -32,7 +34,11 @@ type connector struct {
 
 // Detect returns the external displays attached to this machine.
 func Detect() ([]Display, error) {
-	return detector{sysfs: "/sys", dev: "/dev", open: bus.OpenI2C}.detect()
+	return defaultDetector().detect()
+}
+
+func defaultDetector() detector {
+	return detector{sysfs: "/sys", dev: "/dev", open: bus.OpenI2C}
 }
 
 func (d detector) detect() ([]Display, error) {
@@ -130,8 +136,48 @@ func (d detector) busPath(n int) string {
 	return filepath.Join(d.dev, "i2c-"+strconv.Itoa(n))
 }
 
+// Open opens the control channel of a display found by Detect.
+func Open(disp Display) (bus.Bus, error) {
+	return defaultDetector().openVerified(disp.Bus)
+}
+
+type deviceNumberer interface {
+	DeviceNumber() (major, minor uint32, err error)
+}
+
+// openVerified checks the opened device itself, not its name, because the
+// kernel can give a bus number to another device between the scan and the open.
+func (d detector) openVerified(path string) (bus.Bus, error) {
+	b, err := d.open(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.verify(b); err != nil {
+		_ = b.Close()
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return b, nil
+}
+
+func (d detector) verify(b bus.Bus) error {
+	dn, ok := b.(deviceNumberer)
+	if !ok {
+		return ErrNotGraphicsBus
+	}
+	major, minor, err := dn.DeviceNumber()
+	if err != nil {
+		return err
+	}
+	link := filepath.Join(d.sysfs, "dev/char", fmt.Sprintf("%d:%d", major, minor))
+	resolved, err := filepath.EvalSymlinks(link)
+	if err != nil || !d.belongsToGraphicsCard(resolved) {
+		return ErrNotGraphicsBus
+	}
+	return nil
+}
+
 func (d detector) readEDID(n int) ([]byte, error) {
-	b, err := d.open(d.busPath(n))
+	b, err := d.openVerified(d.busPath(n))
 	if err != nil {
 		return nil, err
 	}
@@ -170,10 +216,14 @@ func (d detector) belongsToGraphicsCard(busDir string) bool {
 	}
 	for dir := filepath.Dir(busDir); strings.HasPrefix(dir, root+string(filepath.Separator)); dir = filepath.Dir(dir) {
 		class, err := os.ReadFile(filepath.Join(dir, "class"))
-		if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
-		return strings.HasPrefix(strings.TrimSpace(string(class)), displayClassPrefix)
+		if err != nil || !displayClass.MatchString(strings.TrimSpace(string(class))) {
+			return false
+		}
+		subsystem, err := filepath.EvalSymlinks(filepath.Join(dir, "subsystem"))
+		return err == nil && filepath.Base(subsystem) == "pci"
 	}
 	return false
 }
@@ -210,6 +260,6 @@ func busNumber(name string) (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	n, err := strconv.Atoi(digits)
-	return n, err == nil
+	n, err := strconv.ParseUint(digits, 10, 16)
+	return int(n), err == nil
 }

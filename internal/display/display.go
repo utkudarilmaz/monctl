@@ -12,6 +12,9 @@ import (
 // ErrAccess means displays may be attached, but their control channel cannot be opened.
 var ErrAccess = errors.New("display: not allowed to open the display control channel")
 
+// ErrNotGraphicsBus means a device is not an I2C bus of a graphics card, so monctl refuses to use it.
+var ErrNotGraphicsBus = errors.New("display: not an I2C bus of a graphics card")
+
 // Display is one external display and the I2C bus that reaches it.
 type Display struct {
 	ID        string
