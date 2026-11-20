@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -331,4 +332,33 @@ func TestListJSONAndProfileColumn(t *testing.T) {
 		t.Fatalf("empty list JSON = %q, want []", got)
 	}
 	r.run(t, 2, "list", "extra")
+}
+
+func TestListPrintsDashForEmptyConnector(t *testing.T) {
+	withConnector := msi
+	withConnector.Connector = "DP-1"
+	noConnector := unknown
+	noConnector.Bus = "avservice:42"
+	r := newRig(withConnector, noConnector)
+
+	r.run(t, 0, "list")
+	rows := map[string][]string{}
+	for _, line := range strings.Split(strings.TrimSpace(r.out.String()), "\n")[1:] {
+		fields := strings.Fields(line)
+		rows[fields[0]] = fields
+	}
+	if got := rows["msi-3cf0"]; len(got) < 2 || !slices.Contains(got, "DP-1") {
+		t.Fatalf("msi row = %q, want connector DP-1", got)
+	}
+	want := []string{"xyz-0001", "Mystery", "-", "avservice:42", "-"}
+	if got := rows["xyz-0001"]; strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("row = %q, want %q", got, want)
+	}
+
+	r.run(t, 0, "list", "-json")
+	var entries []listEntry
+	r.decode(t, &entries)
+	if len(entries) != 2 || entries[0].Connector != "DP-1" || entries[1].Connector != "" {
+		t.Fatalf("JSON connectors = %+v, want DP-1 and empty", entries)
+	}
 }

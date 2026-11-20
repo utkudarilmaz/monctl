@@ -1,7 +1,6 @@
 package display
 
 import (
-	"encoding/hex"
 	"errors"
 	"io/fs"
 	"os"
@@ -13,24 +12,6 @@ import (
 	"github.com/utkudarilmaz/monctl/internal/bus"
 	"github.com/utkudarilmaz/monctl/internal/bus/bustest"
 )
-
-const msiHex = "00ffffffffffff003669f03c00000000" +
-	"07230104b53c2278fb1e65ad4f43af26" +
-	"0c5054a54b0081809500b300d1c00101" +
-	"01010101010108e80030f2705a80b058" +
-	"4a0055502100001a000000fd0030a0ff" +
-	"ff9d010a202020202020000000fc004d" +
-	"50472032373455204531364d000000ff" +
-	"00303030303030303030303030300230"
-
-func msiEDID(t *testing.T) []byte {
-	t.Helper()
-	b, err := hex.DecodeString(msiHex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return b
-}
 
 func panelEDID(t *testing.T) []byte {
 	t.Helper()

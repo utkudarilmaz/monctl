@@ -4,7 +4,7 @@ Thanks for helping.
 
 ## Development setup
 
-You need Go 1.25 or newer. The linter is downloaded for you the first time you run `make lint`, at a pinned version and with its checksum checked.
+You need Go 1.25 or newer. On macOS, also install the Xcode command line tools for cgo. The linter is downloaded for you the first time you run `make lint`, at a pinned version and with its checksum checked.
 
 ```sh
 make ci
@@ -55,4 +55,6 @@ Each input has two values. `write` is the value that switches to the port. `read
 
 ## Safety
 
-`monctl` writes to I2C buses. It must only ever open buses that belong to a graphics card. Never add code that opens SMBus or other system buses, because writing to them can damage hardware.
+On Linux, `monctl` writes to I2C buses. It must only ever open buses that belong to a graphics card. Never add code that opens SMBus or other system buses, because writing to them can damage hardware.
+
+On macOS, `monctl` only opens display services marked external. Keep it that way.
