@@ -76,6 +76,24 @@ The rule gives the logged in user read and write access to every I2C bus on the 
 
 ## Configuration
 
+### Turn on the tray
+
+Every package brings the tray, but it does not start by itself. Turn it on once, and it starts at every login:
+
+| Install | Run once |
+|---|---|
+| Debian package | `systemctl --user enable --now monctl-tray.service` |
+| Homebrew | `brew services start monctl` |
+
+On GNOME, two extensions are also needed, and the package does not turn them on:
+
+- the AppIndicator extension, so GNOME shows tray icons at all, see [Tray menu](#tray-menu)
+- the monctl extension, for the brightness indicator, see [Brightness keys](#gnome)
+
+More about the service is under [Run the tray as a service](#run-the-tray-as-a-service).
+
+### Config file
+
 monctl reads `~/.config/monctl/config.json`, or `$XDG_CONFIG_HOME/monctl/config.json` when that variable is set. The path is the same on Linux and macOS. The file is optional.
 
 ```json
