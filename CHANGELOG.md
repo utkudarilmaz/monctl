@@ -4,6 +4,8 @@ All notable changes to this project are written here. The format follows [Keep a
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-21
+
 ### Added
 
 - On GNOME, the tray binds the brightness keys to monctl by itself the first time it runs, on computers without a backlight of their own.
@@ -53,6 +55,7 @@ All notable changes to this project are written here. The format follows [Keep a
 - `before` setting per input in the config: a command monctl runs before it switches to that input, for example to wake the other computer over SSH.
 - The tray can run as a systemd user service on Linux and as a launchd agent on macOS.
 
-[Unreleased]: https://github.com/utkudarilmaz/monctl/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/utkudarilmaz/monctl/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/utkudarilmaz/monctl/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/utkudarilmaz/monctl/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/utkudarilmaz/monctl/releases/tag/v0.1.0
