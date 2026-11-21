@@ -20,6 +20,17 @@ sudo apt install ./monctl_<version>_amd64.deb
 
 The package installs `/usr/bin/monctl` and the udev rule, so you need no extra setup. It also installs the docs, the licence texts of the libraries monctl uses, and the [tray service](#run-the-tray-as-a-service) in `/usr/lib/systemd/user/`.
 
+The tray does not start by itself. Turn it on once, and it starts at every login:
+
+```sh
+systemctl --user enable --now monctl-tray.service
+```
+
+On GNOME, two extensions are also needed, and the package does not turn them on:
+
+- the AppIndicator extension, so GNOME shows tray icons at all, see [Tray menu](#tray-menu)
+- the monctl extension, for the brightness indicator: log out and in once after the install, then run `gnome-extensions enable monctl@utkudarilmaz.github.io`
+
 ### macOS with Homebrew
 
 Apple Silicon only. Homebrew builds monctl on your Mac, so macOS does not block it. You need the Xcode command line tools.
@@ -30,19 +41,11 @@ brew trust utkudarilmaz/monctl
 brew install monctl
 ```
 
-### Turn on the tray
+The tray does not start by itself. Turn it on once, and it starts at every login:
 
-Every package brings the tray, but it does not start by itself. Turn it on once, and it starts at every login:
-
-| Install | Run once |
-|---|---|
-| Debian package | `systemctl --user enable --now monctl-tray.service` |
-| Homebrew | `brew services start monctl` |
-
-On GNOME, two extensions are also needed, and the package does not turn them on:
-
-- the AppIndicator extension, so GNOME shows tray icons at all, see [Tray menu](#tray-menu)
-- the monctl extension, for the brightness indicator: log out and in once after the install, then run `gnome-extensions enable monctl@utkudarilmaz.github.io`
+```sh
+brew services start monctl
+```
 
 More about the service is under [Run the tray as a service](#run-the-tray-as-a-service).
 
