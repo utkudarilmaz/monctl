@@ -122,3 +122,39 @@ func TestPath(t *testing.T) {
 		t.Fatalf("Dir = %q, %v, %v; want a private monctl directory", dir, info, err)
 	}
 }
+
+func TestDirRefusesADirectoryOthersCanReplace(t *testing.T) {
+	dir := t.TempDir()
+	if !private(dir) {
+		t.Fatal("a directory of this user must be usable")
+	}
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(dir, link); err != nil {
+		t.Fatal(err)
+	}
+	if private(link) || private(filepath.Join(dir, "missing")) {
+		t.Fatal("a link or a missing directory must be refused")
+	}
+}
+
+func TestALongLineIsDropped(t *testing.T) {
+	path := socket(t)
+	stop, err := Serve(path, func(string, int) (int, int, error) {
+		t.Error("the handler must not see a long line")
+		return 0, 0, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+
+	conn, err := net.Dial("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close() }()
+	_, _ = conn.Write(append(make([]byte, 4096), "\nset 1\n"...))
+	if n, _ := conn.Read(make([]byte, 16)); n != 0 {
+		t.Fatalf("got %d bytes back for a long line", n)
+	}
+}

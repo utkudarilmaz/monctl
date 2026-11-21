@@ -84,3 +84,17 @@ func TestWakePrintsTheComputerName(t *testing.T) {
 		t.Fatalf("output is %q", r.out)
 	}
 }
+
+func TestALearnedNameCannotPassForAnotherInput(t *testing.T) {
+	for _, name := range []string{"DP", "displayport"} {
+		r := named(t, "desk")
+		before(r, "usbc", "wake-the-mac")
+		r.app.exec = func([]string) (string, error) { return "computer: " + name + "\n", nil }
+
+		r.run(t, 0, "input", "usbc")
+
+		if strings.Contains(r.out.String(), name) {
+			t.Fatalf("output %q shows the name %q of another input", r.out, name)
+		}
+	}
+}

@@ -3,20 +3,30 @@ package main
 import (
 	"fmt"
 	"maps"
+	"strings"
 
 	"github.com/utkudarilmaz/monctl/internal/config"
 	"github.com/utkudarilmaz/monctl/internal/monitor"
 )
 
 // relabel builds the monitor with the names monctl has learned. A label from
-// the settings file wins over a learned name.
+// the settings file wins over a learned name. A learned name can come from
+// another computer, so one that reads like another input is left out.
 func (s *session) relabel() {
 	cfg := s.config
 	if s.profile != nil {
 		cfg.Inputs = map[string]config.Input{}
 		maps.Copy(cfg.Inputs, s.config.Inputs)
+		taken := map[string]bool{}
+		for _, in := range s.profile.Inputs {
+			label := in.Label
+			if user := s.config.Inputs[in.ID].Label; user != "" {
+				label = user
+			}
+			taken[strings.ToLower(in.ID)], taken[strings.ToLower(label)] = true, true
+		}
 		for id, name := range s.names.Of(s.profile.Name) {
-			if in := cfg.Inputs[id]; in.Label == "" {
+			if in := cfg.Inputs[id]; in.Label == "" && !taken[strings.ToLower(name)] {
 				in.Label = name
 				cfg.Inputs[id] = in
 			}
