@@ -188,6 +188,21 @@ sudo apt install ./monctl_<version>_amd64.deb
 
 The package installs `/usr/bin/monctl` and the udev rule, so you can skip [Linux setup](#linux-setup). It also installs the docs, the licence texts of the libraries monctl uses, and the [tray service](#run-the-tray-as-a-service) in `/usr/lib/systemd/user/`.
 
+### macOS with Homebrew
+
+Apple Silicon only. Homebrew builds monctl on your Mac, so macOS does not block it. You need the Xcode command line tools.
+
+```sh
+brew tap utkudarilmaz/monctl https://github.com/utkudarilmaz/monctl
+brew install monctl
+```
+
+To run the [tray](#tray-menu) at login:
+
+```sh
+brew services start monctl
+```
+
 ### macOS archive
 
 Apple Silicon only. The archive holds the `monctl` binary and a LaunchAgent file for the [tray](#tray-menu).
