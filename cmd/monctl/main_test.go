@@ -60,6 +60,7 @@ func newApp(displays []display.Display, err error) (app, *bytes.Buffer, *bytes.B
 		profiles: func() ([]profile.Profile, error) { return profile.Load(profiles.FS) },
 		config:   func() (config.Config, error) { return config.Config{}, nil },
 		ddc:      []ddc.Option{ddc.WithSleep(func(time.Duration) {})},
+		pause:    func(time.Duration) {},
 	}
 	return a, &out, &errOut
 }

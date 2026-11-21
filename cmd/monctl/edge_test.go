@@ -159,6 +159,7 @@ func TestInputIDWinsOverAnotherInputsLabel(t *testing.T) {
 		return config.Config{Inputs: map[string]config.Input{"usbc": {Label: "dp"}, "dp": {Label: "usbc"}}}, nil
 	}
 	for name, want := range map[string]uint16{"dp": 5, "DP": 5, "usbc": 8, "USBC": 8} {
+		r.fake.VCP[0x60] = bustest.VCP{Current: 7, Max: 14}
 		r.run(t, 0, "input", name)
 		if r.fake.VCP[0x60].Current != want {
 			t.Errorf("input %s wrote %d, want %d", name, r.fake.VCP[0x60].Current, want)
@@ -200,7 +201,7 @@ func TestInputEmptyNameIsUnknown(t *testing.T) {
 
 func TestInputSwitchWriteFailure(t *testing.T) {
 	r := newRig(msi)
-	r.fake.FailWrites = 3
+	r.fake.FailWrites = 6
 	r.run(t, 1, "input", "usbc")
 	if r.fake.VCP[0x60].Current != 7 || !strings.Contains(r.errOut.String(), bustest.ErrInjected.Error()) {
 		t.Fatalf("value %d, stderr %q", r.fake.VCP[0x60].Current, r.errOut)

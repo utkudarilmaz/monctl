@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 
 	"github.com/utkudarilmaz/monctl/internal/bus"
 	"github.com/utkudarilmaz/monctl/internal/config"
@@ -73,6 +74,7 @@ type app struct {
 	runTray  func(tray.Controller, func(error)) error
 	wake     func() error
 	exec     func(argv []string) error
+	pause    func(time.Duration)
 }
 
 var errNoMonitor = errors.New("no external monitor found")

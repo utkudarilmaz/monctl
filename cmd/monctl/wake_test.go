@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/utkudarilmaz/monctl/internal/bus/bustest"
 	"github.com/utkudarilmaz/monctl/internal/config"
 )
 
@@ -36,20 +37,100 @@ func TestInputRunsTheBeforeCommandThenSwitches(t *testing.T) {
 	}
 }
 
-func TestInputDoesNotSwitchWhenTheBeforeCommandFails(t *testing.T) {
+func TestInputSwitchesWithAWarningWhenTheBeforeCommandFails(t *testing.T) {
 	r := newRig(msi)
 	before(r, "usbc", "ssh", "macbook", "monctl", "wake")
 	r.app.exec = func([]string) error { return errors.New("ssh: host is down") }
 
-	r.run(t, 1, "input", "usbc")
+	r.run(t, 0, "input", "usbc")
 
-	if r.fake.VCP[0x60].Current != 7 {
-		t.Fatal("the monitor was switched although the before command failed")
+	if r.fake.VCP[0x60].Current != 8 {
+		t.Fatal("the monitor was not switched")
 	}
-	for _, want := range []string{"not moved", "host is down"} {
+	for _, want := range []string{"switching anyway", "host is down"} {
 		if !strings.Contains(r.errOut.String(), want) {
 			t.Fatalf("stderr %q does not contain %q", r.errOut, want)
 		}
+	}
+}
+
+// bounce makes the fake monitor return to its old input during the first n
+// waits after a switch, as a monitor does when the new input has no picture.
+func bounce(r *rig, n int) *int {
+	waits := 0
+	r.app.pause = func(time.Duration) {
+		waits++
+		if n > 0 && r.fake.VCP[0x60].Current != 7 {
+			n--
+			r.fake.VCP[0x60] = bustest.VCP{Current: 7, Max: 14}
+		}
+	}
+	return &waits
+}
+
+func switches(r *rig) int {
+	count := 0
+	for _, w := range r.fake.Writes {
+		if len(w) == 7 && w[2] == 0x03 && w[3] == 0x60 {
+			count++
+		}
+	}
+	return count
+}
+
+func TestSwitchIsTriedAgainWhenTheMonitorComesBack(t *testing.T) {
+	r := newRig(msi)
+	ran := before(r, "usbc", "wake-the-mac")
+	bounce(r, 1)
+
+	r.run(t, 0, "input", "usbc")
+
+	if got := switches(r); got != 2 {
+		t.Fatalf("the monitor was switched %d times, want 2", got)
+	}
+	if len(*ran) != 1 {
+		t.Fatalf("the before command ran %d times, want 1", len(*ran))
+	}
+	if r.fake.VCP[0x60].Current != 8 {
+		t.Fatalf("monitor ended on input value %d, want 8", r.fake.VCP[0x60].Current)
+	}
+}
+
+func TestSwitchGivesUpWhenTheMonitorKeepsComingBack(t *testing.T) {
+	r := newRig(msi)
+	bounce(r, 100)
+
+	r.run(t, 1, "input", "usbc")
+
+	if got := switches(r); got != switchAttempts {
+		t.Fatalf("the monitor was switched %d times, want %d", got, switchAttempts)
+	}
+	if !strings.Contains(r.errOut.String(), "came back") {
+		t.Fatalf("stderr = %q", r.errOut)
+	}
+}
+
+func TestSwitchWaitsWhileTheMonitorIsSilent(t *testing.T) {
+	r := newRig(msi)
+	waits := bounce(r, 0)
+	r.app.pause = func(time.Duration) { *waits++; r.fake.Asleep = true }
+
+	r.run(t, 0, "input", "usbc")
+
+	if *waits != switchChecks || switches(r) != 1 {
+		t.Fatalf("waited %d times and switched %d times, want %d and 1", *waits, switches(r), switchChecks)
+	}
+}
+
+func TestSwitchToTheCurrentInputDoesNotWait(t *testing.T) {
+	r := newRig(msi)
+	ran := before(r, "dp", "wake-myself")
+	waits := bounce(r, 0)
+
+	r.run(t, 0, "input", "dp")
+
+	if *waits != 0 || len(*ran) != 0 || switches(r) != 1 {
+		t.Fatalf("waits %d, before ran %d, switches %d; want 0, 0, 1", *waits, len(*ran), switches(r))
 	}
 }
 
@@ -76,11 +157,10 @@ func TestTraySwitchUsesTheBeforeCommand(t *testing.T) {
 		t.Fatalf("SetInput: %v, ran %v, input %d", err, *ran, r.fake.VCP[0x60].Current)
 	}
 
-	r.app.exec = func([]string) error { return errors.New("no route") }
-	r.fake.VCP[0x60] = r.fake.VCP[0x10]
-	ctl = trayController{app: r.app}
-	if err := ctl.SetInput("usbc"); !errors.Is(err, errBefore) {
-		t.Fatalf("SetInput error = %v, want errBefore", err)
+	r = newRig(msi)
+	bounce(r, 100)
+	if err := (trayController{app: r.app}).SetInput("usbc"); !errors.Is(err, errCameBack) {
+		t.Fatalf("SetInput error = %v, want errCameBack", err)
 	}
 }
 

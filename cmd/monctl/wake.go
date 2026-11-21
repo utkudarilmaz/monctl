@@ -19,7 +19,16 @@ const (
 	messageRunes  = 200
 )
 
-var errBefore = errors.New("the command to run before switching failed, so the picture was not moved")
+const (
+	switchAttempts   = 3
+	switchChecks     = 7
+	switchCheckEvery = 2 * time.Second
+)
+
+var (
+	errBefore   = errors.New("the command to run before switching failed, switching anyway")
+	errCameBack = errors.New("the monitor came back to this computer, the other one gave no picture")
+)
 
 func (a app) wakeScreen(opts options) int {
 	if len(opts.args) > 0 || opts.json || opts.raw || opts.display != "" {
@@ -31,20 +40,45 @@ func (a app) wakeScreen(opts options) int {
 	return 0
 }
 
-// switchTo runs the input's before command, then switches. A monitor sent to
-// a computer whose screen is asleep finds no picture, so a failed command
-// stops the switch.
+// switchTo runs the input's before command, switches, and checks that the
+// monitor stays away. A monitor that finds no picture on the new input comes
+// back and answers this computer again. A failed switch can still wake the
+// other computer through the cable, so it is tried more than once.
 func (a app) switchTo(s *session, name string) (monitor.Input, error) {
 	in, err := s.monitor.Lookup(name)
 	if err != nil {
 		return monitor.Input{}, err
 	}
+	origin, err := s.monitor.Source()
+	if err != nil || (origin.Known && origin.Input.ID == in.ID) {
+		return s.monitor.SetInput(in.ID)
+	}
 	if before := s.config.Inputs[in.ID].Before; len(before) > 0 {
 		if err := a.exec(before); err != nil {
-			return in, fmt.Errorf("%w: %w", errBefore, err)
+			_, _ = fmt.Fprintf(a.stderr, "monctl: %v: %v\n", errBefore, err)
 		}
 	}
-	return s.monitor.SetInput(in.ID)
+	for range switchAttempts {
+		if _, err := s.monitor.SetInput(in.ID); err != nil {
+			return in, err
+		}
+		if !a.cameBack(s, origin.Value) {
+			return in, nil
+		}
+	}
+	return in, errCameBack
+}
+
+// cameBack watches the monitor after a switch and reports whether it shows
+// this computer again.
+func (a app) cameBack(s *session, origin uint16) bool {
+	for range switchChecks {
+		a.pause(switchCheckEvery)
+		if src, err := s.monitor.Source(); err == nil && src.Value == origin {
+			return true
+		}
+	}
+	return false
 }
 
 func runCommand(argv []string, timeout time.Duration) error {
