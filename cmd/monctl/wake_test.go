@@ -18,9 +18,9 @@ func before(r *rig, id string, argv ...string) *[][]string {
 	r.app.config = func() (config.Config, error) {
 		return config.Config{Inputs: map[string]config.Input{id: {Before: argv}}}, nil
 	}
-	r.app.exec = func(argv []string) error {
+	r.app.exec = func(argv []string) (string, error) {
 		ran = append(ran, argv)
-		return nil
+		return "", nil
 	}
 	return &ran
 }
@@ -42,7 +42,7 @@ func TestInputRunsTheBeforeCommandThenSwitches(t *testing.T) {
 func TestInputSwitchesWithAWarningWhenTheBeforeCommandFails(t *testing.T) {
 	r := newRig(msi)
 	before(r, "usbc", "ssh", "macbook", "monctl", "wake")
-	r.app.exec = func([]string) error { return errors.New("ssh: host is down") }
+	r.app.exec = func([]string) (string, error) { return "", errors.New("ssh: host is down") }
 
 	r.run(t, 0, "input", "usbc")
 
@@ -187,25 +187,32 @@ func TestWakeCommand(t *testing.T) {
 }
 
 func TestRunCommand(t *testing.T) {
-	if err := runCommand([]string{"true"}, beforeTimeout); err != nil {
+	if _, err := runCommand([]string{"true"}, beforeTimeout); err != nil {
 		t.Fatalf("true failed: %v", err)
 	}
-	err := runCommand([]string{"sh", "-c", "echo first; echo broken pipe >&2; exit 3"}, beforeTimeout)
+	_, err := runCommand([]string{"sh", "-c", "echo first; echo broken pipe >&2; exit 3"}, beforeTimeout)
 	if err == nil || !strings.Contains(err.Error(), "broken pipe") {
 		t.Fatalf("error = %v, want the last output line", err)
 	}
-	err = runCommand([]string{"sh", "-c", "exit 3"}, beforeTimeout)
+	_, err = runCommand([]string{"sh", "-c", "exit 3"}, beforeTimeout)
 	if err == nil || !strings.Contains(err.Error(), "exit status 3") {
 		t.Fatalf("error = %v, want the exit status", err)
 	}
-	if err := runCommand([]string{"monctl-no-such-program"}, beforeTimeout); err == nil {
+	if _, err := runCommand([]string{"monctl-no-such-program"}, beforeTimeout); err == nil {
 		t.Fatal("a missing program must fail")
+	}
+}
+
+func TestRunCommandReturnsTheOutput(t *testing.T) {
+	output, err := runCommand([]string{"sh", "-c", "echo computer: desk"}, beforeTimeout)
+	if err != nil || output != "computer: desk\n" {
+		t.Fatalf("output = %q, error = %v", output, err)
 	}
 }
 
 func TestRunCommandStopsAtTheTimeout(t *testing.T) {
 	start := time.Now()
-	err := runCommand([]string{"sh", "-c", "sleep 5; true"}, 100*time.Millisecond)
+	_, err := runCommand([]string{"sh", "-c", "sleep 5; true"}, 100*time.Millisecond)
 
 	if err == nil || !strings.Contains(err.Error(), "did not finish") {
 		t.Fatalf("error = %v, want a timeout", err)
@@ -216,7 +223,7 @@ func TestRunCommandStopsAtTheTimeout(t *testing.T) {
 }
 
 func TestRunCommandPrintsOnlySafeOutput(t *testing.T) {
-	err := runCommand([]string{"sh", "-c", `head -c 100000 /dev/zero; printf '\nbad\033[2Jline\n'; exit 1`}, beforeTimeout)
+	_, err := runCommand([]string{"sh", "-c", `head -c 100000 /dev/zero; printf '\nbad\033[2Jline\n'; exit 1`}, beforeTimeout)
 
 	if err == nil || err.Error() != "sh: bad[2Jline" {
 		t.Fatalf("error = %q, want the last line without the escape character", err)

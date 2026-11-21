@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/utkudarilmaz/monctl/internal/bus"
@@ -17,6 +18,7 @@ import (
 	"github.com/utkudarilmaz/monctl/internal/ddc"
 	"github.com/utkudarilmaz/monctl/internal/display"
 	"github.com/utkudarilmaz/monctl/internal/monitor"
+	"github.com/utkudarilmaz/monctl/internal/names"
 	"github.com/utkudarilmaz/monctl/internal/profile"
 	"github.com/utkudarilmaz/monctl/internal/remote"
 	"github.com/utkudarilmaz/monctl/internal/tray"
@@ -74,7 +76,9 @@ type app struct {
 	ddc      []ddc.Option
 	runTray  func(tray.Controller, func(error)) error
 	wake     func() error
-	exec     func(argv []string) error
+	exec     func(argv []string) (string, error)
+	host     func() string
+	state    string
 	pause    func(time.Duration)
 	lock     func() func()
 	remote   func(command string, value int) (current, limit int, err error)
@@ -108,7 +112,9 @@ func realApp(stdout, stderr io.Writer) app {
 		config:   loadConfig,
 		runTray:  tray.Run,
 		wake:     wake.Screen,
-		exec:     func(argv []string) error { return runCommand(argv, beforeTimeout) },
+		exec:     func(argv []string) (string, error) { return runCommand(argv, beforeTimeout) },
+		host:     sync.OnceValue(names.Host),
+		state:    names.Path(),
 		pause:    time.Sleep,
 		lock:     lockMonitor,
 		remote:   func(command string, value int) (int, int, error) { return remote.Send(remote.Path(), command, value) },
@@ -250,6 +256,7 @@ type session struct {
 	client  *ddc.Client
 	monitor *monitor.Monitor
 	config  config.Config
+	names   names.Book
 	close   func()
 }
 
@@ -277,6 +284,9 @@ func (a app) connect(id string) (*session, error) {
 	if p, ok := profile.Find(all, disp.Info); ok {
 		s.profile = &p
 	}
-	s.monitor = monitor.New(s.client, s.profile, cfg)
+	if a.state != "" {
+		s.names = names.Load(a.state)
+	}
+	s.relabel()
 	return s, nil
 }

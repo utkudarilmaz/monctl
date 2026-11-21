@@ -34,11 +34,11 @@ func (c trayController) State() (tray.State, error) {
 			return err
 		}
 		state.Brightness, state.Max = level.Current, level.Max
+		if src, err := c.app.source(s); err == nil && src.Known {
+			state.Current = src.Input.ID
+		}
 		for _, in := range s.monitor.Inputs() {
 			state.Inputs = append(state.Inputs, tray.Input{ID: in.ID, Label: in.Label})
-		}
-		if src, err := s.monitor.Source(); err == nil && src.Known {
-			state.Current = src.Input.ID
 		}
 		return nil
 	})
