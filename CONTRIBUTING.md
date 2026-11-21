@@ -67,3 +67,4 @@ Maintainers only.
 2. Push a tag such as `v0.1.0`. A `.deb` built from a commit without a version tag gets the version `0.0.0+<commit>`.
 3. The release workflow builds Linux amd64, Linux arm64, and macOS arm64. It creates a draft GitHub release with the archives, the `.deb` files, and `checksums.txt`.
 4. Check the draft and publish it by hand.
+5. Point `Formula/monctl.rb` at the new tag: change `url`, and set `sha256` to the checksum of that source archive.

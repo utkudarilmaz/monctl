@@ -4,6 +4,10 @@ All notable changes to this project are written here. The format follows [Keep a
 
 ## [Unreleased]
 
+### Added
+
+- Homebrew formula for macOS, with a service that runs the tray at login.
+
 ## [0.1.0] - 2026-11-21
 
 ### Added
