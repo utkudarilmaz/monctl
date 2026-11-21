@@ -80,6 +80,9 @@ func handleRemote(d *dimmer.Dimmer) remote.Handler {
 		default:
 			err = fmt.Errorf("unknown command %q", command)
 		}
+		if err == nil {
+			osd.Brightness(current, limit)
+		}
 		if errors.Is(err, ddc.ErrNoReply) {
 			err = errors.New(silentReply)
 		}

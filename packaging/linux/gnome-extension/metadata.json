@@ -1,0 +1,7 @@
+{
+  "uuid": "monctl@utkudarilmaz.github.io",
+  "name": "monctl brightness indicator",
+  "description": "Shows the GNOME on-screen indicator when monctl changes the brightness of an external monitor.",
+  "shell-version": ["45", "46", "47", "48"],
+  "url": "https://github.com/utkudarilmaz/monctl"
+}

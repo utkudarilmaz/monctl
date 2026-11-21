@@ -29,6 +29,7 @@ PLAIN        := $(VERSION:v%=%)
 DEB_VERSION  := $(if $(shell echo '$(PLAIN)' | grep -E '^[0-9]+\.[0-9]+'),$(PLAIN),0.0.0+$(PLAIN))
 STAGE        := $(DIST_DIR)/$(APPLICATION)_$(PLAIN)_$(GOOS)_$(GOARCH)
 DEB_ROOT     := $(DIST_DIR)/deb_$(GOARCH)
+GNOME_EXTENSION := monctl@utkudarilmaz.github.io
 PACKAGING_FILES := $(if $(filter darwin,$(GOOS)),$(wildcard packaging/macos/*.plist),packaging/linux/60-monctl.rules packaging/linux/monctl-tray.service)
 
 .DEFAULT_GOAL := help
@@ -109,6 +110,9 @@ dist: $(STAGE)/licenses ## Build the release archive for this machine
 	@cp LICENSE README.md $(STAGE)/
 	@mkdir -p $(STAGE)/packaging
 	@cp $(PACKAGING_FILES) $(STAGE)/packaging/
+ifneq ($(GOOS),darwin)
+	@cp -R packaging/linux/gnome-extension $(STAGE)/packaging/
+endif
 	@chmod -R u=rwX,go=rX $(STAGE)
 	@tar -czf $(STAGE).tar.gz -C $(DIST_DIR) $(notdir $(STAGE))
 	@echo "Archive: $(STAGE).tar.gz"
@@ -119,6 +123,8 @@ deb: dist ## Build the Debian package from the release archive
 	@cp $(STAGE)/$(APPLICATION) $(DEB_ROOT)/usr/bin/
 	@cp packaging/linux/60-monctl.rules $(DEB_ROOT)/usr/lib/udev/rules.d/
 	@cp packaging/linux/monctl-tray.service $(DEB_ROOT)/usr/lib/systemd/user/
+	@mkdir -p $(DEB_ROOT)/usr/share/gnome-shell/extensions/$(GNOME_EXTENSION)
+	@cp packaging/linux/gnome-extension/* $(DEB_ROOT)/usr/share/gnome-shell/extensions/$(GNOME_EXTENSION)/
 	@cp README.md $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
 	@cp LICENSE $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/copyright
 	@cp -R $(STAGE)/licenses $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
