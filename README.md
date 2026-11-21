@@ -18,8 +18,6 @@ Builds exist for amd64 and arm64.
 sudo apt install ./monctl_<version>_amd64.deb
 ```
 
-The package installs `/usr/bin/monctl` and the udev rule, so you need no extra setup. It also installs the docs, the licence texts of the libraries monctl uses, and the [tray service](#run-the-tray-as-a-service) in `/usr/lib/systemd/user/`.
-
 The tray does not start by itself. Turn it on once, and it starts at every login:
 
 ```sh
