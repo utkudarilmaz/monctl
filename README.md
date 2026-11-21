@@ -1,16 +1,99 @@
 # monctl
 
+![The monctl menu in the macOS menu bar, with brightness and input items](docs/images/tray-macos.png)
+
 Change your monitor's settings from the computer instead of the buttons on the monitor.
 
 `monctl` talks to external monitors over DDC/CI, the control channel that runs on the video cable. It targets Debian with GNOME and macOS with Apple Silicon.
 
-## Status
+## Install
 
-Early development. The first release is 0.1.0.
+Packages are on the [GitHub releases page](https://github.com/utkudarilmaz/monctl/releases). For the macOS archive or a build from source, see [other ways to install](docs/other-installs.md).
 
-Works now on Linux and on macOS with Apple Silicon: `list`, `brightness`, `input`, and `probe`. Intel Macs are not supported.
+### Debian package
 
-`monctl tray` works on GNOME with the AppIndicator extension and in the macOS menu bar. It has been started on both, but the menu itself has had little hands on testing so far.
+Builds exist for amd64 and arm64.
+
+```sh
+sudo apt install ./monctl_<version>_amd64.deb
+```
+
+The tray does not start by itself. Turn it on once, and it starts at every login:
+
+```sh
+systemctl --user enable --now monctl-tray.service
+```
+
+On GNOME, two extensions are also needed, and the package does not turn them on:
+
+- the AppIndicator extension, so GNOME shows tray icons at all, see [Tray menu](#tray-menu)
+- the monctl extension, for the brightness indicator: log out and in once after the install, then run `gnome-extensions enable monctl@utkudarilmaz.github.io`
+
+### macOS with Homebrew
+
+Apple Silicon only. Homebrew builds monctl on your Mac, so macOS does not block it. You need the Xcode command line tools.
+
+```sh
+brew tap utkudarilmaz/monctl https://github.com/utkudarilmaz/monctl
+brew trust utkudarilmaz/monctl
+brew install monctl
+```
+
+The tray does not start by itself. Turn it on once, and it starts at every login:
+
+```sh
+brew services start monctl
+```
+
+More about the service is under [Run the tray as a service](#run-the-tray-as-a-service).
+
+## Configuration
+
+### Config file
+
+monctl reads `~/.config/monctl/config.json`, or `$XDG_CONFIG_HOME/monctl/config.json` when that variable is set. The path is the same on Linux and macOS. The file is optional.
+
+```json
+{
+  "inputs": {
+    "dp": { "label": "Desk computer" },
+    "usbc": {
+      "before": ["ssh", "-o", "BatchMode=yes", "<user>@<other-computer>", "monctl", "wake"]
+    },
+    "hdmi1": { "hidden": true }
+  }
+}
+```
+
+The keys are the input ids from `monctl input`. Ids the monitor does not have are ignored.
+
+| Setting | What it does |
+|---|---|
+| `label` | The name shown for the input. You can use it as a name: `monctl input "Desk computer"`. |
+| `hidden` | Leaves the input out of the list. It still works by its id. |
+| `before` | A command monctl runs before it switches to the input, for example to wake the other computer. |
+
+### Run a command before a switch
+
+`before` is a command monctl runs before it switches the monitor to that input. Write the program and each argument as its own word, because no shell is used. If the command fails or takes longer than 20 seconds, monctl prints a warning and switches anyway. It runs for `monctl input <name>` and for the tray, not for `monctl input -raw`.
+
+Use it to wake the other computer first. Say computers A and B can reach each other over SSH with keys, with no password prompt, and both have monctl installed. On A, give the input that leads to B this setting:
+
+```json
+{
+  "inputs": {
+    "usbc": {
+      "before": ["ssh", "-o", "BatchMode=yes", "<user>@<computer-b>", "monctl", "wake"]
+    }
+  }
+}
+```
+
+Put the user name and the host name of B in place of `<user>` and `<computer-b>`. Do the same on B for the input that leads to A. If monctl is not on the PATH of the other computer, use its full path, for example `/usr/local/bin/monctl`.
+
+Only the config file can hold a `before` command, not a monitor profile. Because it can start programs, make the file writable only by you.
+
+To add or override a monitor profile, put it in `~/.config/monctl/profiles/*.json`. Your profiles win over the ones shipped with monctl.
 
 ## Usage
 
@@ -60,62 +143,6 @@ monctl brightness 40 -d msi-3cf0-ab12cd34
 ```
 
 `monctl probe` prints what a monitor reports. It helps add a new model, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor). Run `monctl` alone for the full command list.
-
-## Configuration
-
-monctl reads `~/.config/monctl/config.json`, or `$XDG_CONFIG_HOME/monctl/config.json` when that variable is set. The path is the same on Linux and macOS. The file is optional.
-
-```json
-{
-  "inputs": {
-    "dp": { "label": "Desk computer" },
-    "usbc": {
-      "before": ["ssh", "-o", "BatchMode=yes", "<user>@<other-computer>", "monctl", "wake"]
-    },
-    "hdmi1": { "hidden": true }
-  }
-}
-```
-
-The keys are the input ids from `monctl input`. Ids the monitor does not have are ignored.
-
-| Setting | What it does |
-|---|---|
-| `label` | The name shown for the input. You can use it as a name: `monctl input "Desk computer"`. |
-| `hidden` | Leaves the input out of the list. It still works by its id. |
-| `before` | A command monctl runs before it switches to the input, for example to wake the other computer. |
-
-### Input names
-
-You do not have to write labels. monctl finds the names like this:
-
-- The input the monitor shows is this computer, because a monitor only answers the computer it shows. That input gets the name of this computer.
-- An input with a `before` command that runs `monctl wake` on the other computer gets the name of that computer. `monctl wake` prints the name, and monctl reads it. The name is known after the first switch to that input.
-- Any other input keeps the name of its port, such as "DisplayPort".
-
-A `label` in the config always wins. A learned name that matches the id or label of another input is not used. The names monctl learned are kept in `~/.local/state/monctl/names.json`, or under `$XDG_STATE_HOME` when that variable is set. Delete the file to forget them. When you move a computer to another port, the names correct themselves.
-
-### Run a command before a switch
-
-`before` is a command monctl runs before it switches the monitor to that input. Write the program and each argument as its own word, because no shell is used. If the command fails or takes longer than 20 seconds, monctl prints a warning and switches anyway. It runs for `monctl input <name>` and for the tray, not for `monctl input -raw`.
-
-Use it to wake the other computer first. Say computers A and B can reach each other over SSH with keys, with no password prompt, and both have monctl installed. On A, give the input that leads to B this setting:
-
-```json
-{
-  "inputs": {
-    "usbc": {
-      "before": ["ssh", "-o", "BatchMode=yes", "<user>@<computer-b>", "monctl", "wake"]
-    }
-  }
-}
-```
-
-Put the user name and the host name of B in place of `<user>` and `<computer-b>`. Do the same on B for the input that leads to A. If monctl is not on the PATH of the other computer, use its full path, for example `/usr/local/bin/monctl`.
-
-Only the config file can hold a `before` command, not a monitor profile. Because it can start programs, make the file writable only by you.
-
-To add or override a monitor profile, put it in `~/.config/monctl/profiles/*.json`. Your profiles win over the ones shipped with monctl.
 
 ## Tray menu
 
@@ -184,139 +211,11 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.utkudarilmaz.m
 launchctl bootout gui/$(id -u)/io.github.utkudarilmaz.monctl.tray
 ```
 
-## Brightness keys
-
-The brightness keys of your keyboard can change the external monitor. On macOS this needs the [tray](#tray-menu) to be running. On GNOME the keys work without it, but the tray makes them faster and shows the indicator. The tray remembers the brightness, so a key press costs one short write, and quick presses or a held key are merged.
-
-### macOS
-
-The tray catches the brightness keys itself. One press moves the brightness by 5 percent and shows the system brightness indicator on the monitor. While the monitor shows another computer, the keys keep their normal job.
-
-macOS has to allow this once. At the first start it asks for the Accessibility permission. Open System Settings, Privacy and Security, Accessibility, turn monctl on, and start the tray again:
-
-```sh
-brew services restart monctl
-```
-
-monctl is not signed with an Apple Developer ID, so macOS drops the permission after each upgrade. Turn it on again the same way. Other apps that catch the same keys, such as MonitorControl, should not run at the same time.
-
-The brightness slider in System Settings only works for Apple displays. monctl cannot change that.
-
-### GNOME
-
-Bind the keys to monctl in Settings, Keyboard, View and Customise Shortcuts, Custom Shortcuts:
-
-| Name | Command | Shortcut |
-|---|---|---|
-| monctl brighter | `monctl brightness +5` | the brightness up key |
-| monctl dimmer | `monctl brightness -5` | the brightness down key |
-
-GNOME does not let a normal program show its on-screen indicator, so the Debian package ships a small GNOME Shell extension that does it for monctl. Log out and in once after installing the package, then turn it on:
-
-```sh
-gnome-extensions enable monctl@utkudarilmaz.github.io
-```
-
-The indicator shows when the tray changes the brightness, which covers the shortcuts above. Without the extension everything else still works. Installed from the archive, copy `packaging/gnome-extension` to `~/.local/share/gnome-shell/extensions/monctl@utkudarilmaz.github.io` first.
-
-While the tray runs, `monctl brightness` with a value hands the change to the tray, which is about ten times faster than doing it alone. Without the tray the command still works.
-
-## How input switching behaves
-
-- A monitor only answers on the input it is showing. A computer can send the picture to another computer, but it cannot pull it back.
-- When the monitor shows another computer, monctl says so.
-- The target computer must be awake and sending a picture. If its screen is asleep, the monitor finds no picture and falls back to the old input. With the monitor's automatic input scan turned off, it stays black instead. A laptop with a closed lid may go to sleep when the picture leaves it.
-- To fix this, wake the target computer first with a [`before` command](#configuration). In tests, switches with this step worked every time, also onto a blanked screen and onto a laptop with a closed lid.
-- monctl watches the monitor for about 14 seconds after a switch. If the monitor comes back, monctl switches again, up to three times. A first try can wake the other computer through the cable, for example at its login screen, so the second try often works. `monctl input <name>` returns only after this check.
-- Leave the monitor's automatic input scan on, so a failed switch falls back to a picture instead of a black screen.
-- Only one monctl command talks to the monitor at a time. Others wait for their turn, so quick key presses that run `monctl brightness +10` add up in order.
-- After a switch, the monitor needs around ten seconds before it answers again.
-
-## Install
-
-Packages are on the [GitHub releases page](https://github.com/utkudarilmaz/monctl/releases). You can also [build from source](#build-from-source).
-
-### Debian package
-
-Builds exist for amd64 and arm64.
-
-```sh
-sudo apt install ./monctl_<version>_amd64.deb
-```
-
-The package installs `/usr/bin/monctl` and the udev rule, so you can skip [Linux setup](#linux-setup). It also installs the docs, the licence texts of the libraries monctl uses, and the [tray service](#run-the-tray-as-a-service) in `/usr/lib/systemd/user/`.
-
-### macOS with Homebrew
-
-Apple Silicon only. Homebrew builds monctl on your Mac, so macOS does not block it. You need the Xcode command line tools.
-
-```sh
-brew tap utkudarilmaz/monctl https://github.com/utkudarilmaz/monctl
-brew trust utkudarilmaz/monctl
-brew install monctl
-```
-
-Newer Homebrew versions ask you to trust a tap that is not their own before they install from it. Skip the `brew trust` line if your Homebrew does not know the command.
-
-To run the [tray](#tray-menu) at login:
-
-```sh
-brew services start monctl
-```
-
-### macOS archive
-
-Apple Silicon only. The archive holds the `monctl` binary and a LaunchAgent file for the [tray](#tray-menu).
-
-```sh
-tar -xzf monctl_<version>_darwin_arm64.tar.gz
-sudo cp monctl_<version>_darwin_arm64/monctl /usr/local/bin/
-```
-
-The binary is not signed with an Apple Developer ID, so macOS may block the first start of a downloaded copy. Allow it in System Settings under Privacy and Security. A copy built on the same Mac with `make build` is not affected.
-
-### Build from source
-
-You need Go 1.25 or newer. On macOS, also install the Xcode command line tools, because the macOS part uses cgo with the IOKit framework.
-
-```sh
-make build
-./bin/monctl version
-```
-
-On Linux, then follow [Linux setup](#linux-setup).
-
-## Linux setup
-
-These steps are only for a build from source. The Debian package does them for you.
-
-monctl needs access to the I2C buses of your graphics card. Install the udev rule from this repo:
-
-```sh
-sudo cp packaging/linux/60-monctl.rules /etc/udev/rules.d/
-sudo udevadm control -R
-sudo udevadm trigger -s i2c-dev
-```
-
-monctl prints these commands when it cannot open a bus.
-
-The rule gives the logged in user read and write access to every I2C bus on the graphics card, not only the ones that lead to a monitor. monctl itself only opens buses that belong to a PCI graphics device. It never opens SMBus or other system buses.
-
-## macOS setup
-
-No setup is needed. There is no udev rule and no sudo. Only the [brightness keys](#macos) need the Accessibility permission.
-
-monctl lists only external monitors. The built-in screen is never listed.
-
-monctl uses IOAVService, a private Apple API that other monitor tools for Apple Silicon also use, so a future macOS version could break it.
-
-## Supported monitors
+## Tested monitors
 
 | Monitor | Brightness | Input switching |
 |---|---|---|
-| MSI MPG 274URDFW E16M | yes | DisplayPort and USB-C. HDMI values are not measured yet. |
-
-On macOS, this monitor is tested over USB-C.
+| MSI MPG 274URDFW E16M | yes | DisplayPort and USB-C |
 
 Other monitors are added through small profile files. See [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor).
 
