@@ -8,6 +8,16 @@ All notable changes to this project are written here. The format follows [Keep a
 
 - Homebrew formula for macOS, with a service that runs the tray at login.
 
+### Changed
+
+- `monctl input` and the tray now check that the monitor stays on the new input, and try again up to three times when it comes back. This takes about 14 seconds.
+- A failed `before` command no longer stops the switch. monctl prints a warning and switches anyway.
+- A brightness change no longer reads the value back, which makes it about twice as fast.
+
+### Fixed
+
+- Two monctl commands at the same time no longer read each other's replies. They now take turns.
+
 ## [0.1.0] - 2026-11-21
 
 ### Added

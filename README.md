@@ -77,7 +77,7 @@ monctl reads `~/.config/monctl/config.json`, or `$XDG_CONFIG_HOME/monctl/config.
 
 The keys are the input ids from `monctl input`. A label replaces the name shown, and you can use it as a name: `monctl input MacBook`. A hidden input leaves the list but still works by its id. Ids the monitor does not have are ignored.
 
-`before` is a command monctl runs before it switches the monitor to that input. Write the program and each argument as its own word, because no shell is used. If the command fails or takes longer than 20 seconds, monctl does not switch and prints why. It runs for `monctl input <name>` and for the tray, not for `monctl input -raw`.
+`before` is a command monctl runs before it switches the monitor to that input. Write the program and each argument as its own word, because no shell is used. If the command fails or takes longer than 20 seconds, monctl prints a warning and switches anyway. It runs for `monctl input <name>` and for the tray, not for `monctl input -raw`.
 
 Use it to wake the other computer first. Say computers A and B can reach each other over SSH with keys, with no password prompt, and both have monctl installed. On A, give the input that leads to B this setting:
 
@@ -171,7 +171,9 @@ launchctl bootout gui/$(id -u)/io.github.utkudarilmaz.monctl.tray
 - When the monitor shows another computer, monctl says so.
 - The target computer must be awake and sending a picture. If its screen is asleep, the monitor finds no picture and falls back to the old input. With the monitor's automatic input scan turned off, it stays black instead. A laptop with a closed lid may go to sleep when the picture leaves it.
 - To fix this, wake the target computer first with a [`before` command](#configuration). In tests, switches with this step worked every time, also onto a blanked screen and onto a laptop with a closed lid.
+- monctl watches the monitor for about 14 seconds after a switch. If the monitor comes back, monctl switches again, up to three times. A first try can wake the other computer through the cable, for example at its login screen, so the second try often works. `monctl input <name>` returns only after this check.
 - Leave the monitor's automatic input scan on, so a failed switch falls back to a picture instead of a black screen.
+- Only one monctl command talks to the monitor at a time. Others wait for their turn, so quick key presses that run `monctl brightness +10` add up in order.
 - After a switch, the monitor needs around ten seconds before it answers again.
 
 ## Install
