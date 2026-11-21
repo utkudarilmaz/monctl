@@ -4,6 +4,8 @@ All notable changes to this project are written here. The format follows [Keep a
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-21
+
 ### Added
 
 - The tray on macOS catches the brightness keys and changes the external monitor.
@@ -42,5 +44,6 @@ All notable changes to this project are written here. The format follows [Keep a
 - `before` setting per input in the config: a command monctl runs before it switches to that input, for example to wake the other computer over SSH.
 - The tray can run as a systemd user service on Linux and as a launchd agent on macOS.
 
-[Unreleased]: https://github.com/utkudarilmaz/monctl/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/utkudarilmaz/monctl/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/utkudarilmaz/monctl/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/utkudarilmaz/monctl/releases/tag/v0.1.0
