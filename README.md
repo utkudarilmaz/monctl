@@ -6,7 +6,7 @@ Change your monitor's settings from the computer instead of the buttons on the m
 
 ## Status
 
-Early development. Nothing is released yet.
+Early development. The first release is 0.1.0.
 
 Works now on Linux and on macOS with Apple Silicon: `list`, `brightness`, `input`, and `probe`. Intel Macs are not supported.
 
@@ -176,7 +176,7 @@ launchctl bootout gui/$(id -u)/io.github.utkudarilmaz.monctl.tray
 
 ## Install
 
-Nothing is released yet. Packages will be on the [GitHub releases page](https://github.com/utkudarilmaz/monctl/releases). Until then, [build from source](#build-from-source).
+Packages are on the [GitHub releases page](https://github.com/utkudarilmaz/monctl/releases). You can also [build from source](#build-from-source).
 
 ### Debian package
 
