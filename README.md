@@ -50,7 +50,7 @@ Inputs:
 monctl wake              # turn on the screen of this computer
 ```
 
-`wake` takes no flags. It first prints the name of this computer, which the computer that asked uses as the input name. On GNOME it needs this user to be logged in at the screen. On macOS it works like moving the mouse. It is meant to be run from another computer before a switch, see [Configuration](#configuration).
+`wake` takes no flags. It first prints `computer: <name>` with the name of this computer, which the computer that asked uses as the input name. On GNOME it needs this user to be logged in at the screen. On macOS it works like moving the mouse. It is meant to be run from another computer before a switch, see [Configuration](#configuration).
 
 Add `-json` to `list`, `brightness`, `input`, or `probe` for JSON output. With more than one monitor, pick one with `-d`:
 
@@ -93,7 +93,7 @@ You do not have to write labels. monctl finds the names like this:
 - An input with a `before` command that runs `monctl wake` on the other computer gets the name of that computer. `monctl wake` prints the name, and monctl reads it. The name is known after the first switch to that input.
 - Any other input keeps the name of its port, such as "DisplayPort".
 
-A `label` in the config always wins. The names monctl learned are kept in `~/.local/state/monctl/names.json`, or under `$XDG_STATE_HOME` when that variable is set. Delete the file to forget them. When you move a computer to another port, the names correct themselves.
+A `label` in the config always wins. A learned name that matches the id or label of another input is not used. The names monctl learned are kept in `~/.local/state/monctl/names.json`, or under `$XDG_STATE_HOME` when that variable is set. Delete the file to forget them. When you move a computer to another port, the names correct themselves.
 
 ### Run a command before a switch
 
@@ -186,7 +186,7 @@ launchctl bootout gui/$(id -u)/io.github.utkudarilmaz.monctl.tray
 
 ## Brightness keys
 
-The brightness keys of your keyboard can change the external monitor. This needs the [tray](#tray-menu) to be running. The tray remembers the brightness, so a key press costs one short write, and quick presses or a held key are merged.
+The brightness keys of your keyboard can change the external monitor. On macOS this needs the [tray](#tray-menu) to be running. On GNOME the keys work without it, but the tray makes them faster and shows the indicator. The tray remembers the brightness, so a key press costs one short write, and quick presses or a held key are merged.
 
 ### macOS
 
@@ -198,7 +198,7 @@ macOS has to allow this once. At the first start it asks for the Accessibility p
 brew services restart monctl
 ```
 
-monctl is not signed with an Apple Developer ID, so macOS may ask again after an upgrade. Other apps that catch the same keys, such as MonitorControl, should not run at the same time.
+monctl is not signed with an Apple Developer ID, so macOS drops the permission after each upgrade. Turn it on again the same way. Other apps that catch the same keys, such as MonitorControl, should not run at the same time.
 
 The brightness slider in System Settings only works for Apple displays. monctl cannot change that.
 
@@ -301,7 +301,7 @@ The rule gives the logged in user read and write access to every I2C bus on the 
 
 ## macOS setup
 
-No setup is needed. There is no udev rule, no sudo, and no extra permission.
+No setup is needed. There is no udev rule and no sudo. Only the [brightness keys](#macos) need the Accessibility permission.
 
 monctl lists only external monitors. The built-in screen is never listed.
 
