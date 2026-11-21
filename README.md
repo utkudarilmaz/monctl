@@ -30,8 +30,6 @@ brew trust utkudarilmaz/monctl
 brew install monctl
 ```
 
-Newer Homebrew versions ask you to trust a tap that is not their own before they install from it. Skip the `brew trust` line if your Homebrew does not know the command.
-
 To run the [tray](#tray-menu) at login:
 
 ```sh
