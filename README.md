@@ -82,55 +82,6 @@ monctl lists only external monitors. The built-in screen is never listed.
 
 monctl uses IOAVService, a private Apple API that other monitor tools for Apple Silicon also use, so a future macOS version could break it.
 
-## Usage
-
-```sh
-monctl list
-```
-
-```text
-ID                 NAME           CONNECTOR  BUS         PROFILE
-msi-3cf0-ab12cd34  MPG 274U E16M  DP-1       /dev/i2c-5  MSI MPG 274URDFW E16M
-```
-
-`list` shows the external monitors monctl can reach. The ID is the maker, the product code, and the serial number from the monitor. On macOS, CONNECTOR shows `-` and BUS shows the display service, for example `avservice:4295167419`.
-
-```sh
-monctl brightness        # print the brightness
-monctl brightness 40     # set it to 40
-monctl brightness +10    # raise it by 10
-monctl brightness -10    # lower it by 10
-```
-
-Brightness stays between 0 and the monitor's maximum. Each command prints the new value.
-
-```sh
-monctl input             # print the current input and the inputs you can switch to
-monctl input usbc        # switch to USB-C
-```
-
-```text
-Current: DisplayPort (dp)
-Inputs:
-  dp    DisplayPort
-  usbc  USB-C
-```
-
-```sh
-monctl wake              # turn on the screen of this computer
-```
-
-`wake` takes no flags. It first prints `computer: <name>` with the name of this computer, which the computer that asked uses as the input name. On GNOME it needs this user to be logged in at the screen. On macOS it works like moving the mouse. It is meant to be run from another computer before a switch, see [Configuration](#configuration).
-
-Add `-json` to `list`, `brightness`, `input`, or `probe` for JSON output. With more than one monitor, pick one with `-d`:
-
-```sh
-monctl list -json
-monctl brightness 40 -d msi-3cf0-ab12cd34
-```
-
-`monctl probe` prints what a monitor reports. It helps add a new model, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor). Run `monctl` alone for the full command list.
-
 ## Configuration
 
 monctl reads `~/.config/monctl/config.json`, or `$XDG_CONFIG_HOME/monctl/config.json` when that variable is set. The path is the same on Linux and macOS. The file is optional.
@@ -186,6 +137,55 @@ Put the user name and the host name of B in place of `<user>` and `<computer-b>`
 Only the config file can hold a `before` command, not a monitor profile. Because it can start programs, make the file writable only by you.
 
 To add or override a monitor profile, put it in `~/.config/monctl/profiles/*.json`. Your profiles win over the ones shipped with monctl.
+
+## Usage
+
+```sh
+monctl list
+```
+
+```text
+ID                 NAME           CONNECTOR  BUS         PROFILE
+msi-3cf0-ab12cd34  MPG 274U E16M  DP-1       /dev/i2c-5  MSI MPG 274URDFW E16M
+```
+
+`list` shows the external monitors monctl can reach. The ID is the maker, the product code, and the serial number from the monitor. On macOS, CONNECTOR shows `-` and BUS shows the display service, for example `avservice:4295167419`.
+
+```sh
+monctl brightness        # print the brightness
+monctl brightness 40     # set it to 40
+monctl brightness +10    # raise it by 10
+monctl brightness -10    # lower it by 10
+```
+
+Brightness stays between 0 and the monitor's maximum. Each command prints the new value.
+
+```sh
+monctl input             # print the current input and the inputs you can switch to
+monctl input usbc        # switch to USB-C
+```
+
+```text
+Current: DisplayPort (dp)
+Inputs:
+  dp    DisplayPort
+  usbc  USB-C
+```
+
+```sh
+monctl wake              # turn on the screen of this computer
+```
+
+`wake` takes no flags. It first prints `computer: <name>` with the name of this computer, which the computer that asked uses as the input name. On GNOME it needs this user to be logged in at the screen. On macOS it works like moving the mouse. It is meant to be run from another computer before a switch, see [Configuration](#configuration).
+
+Add `-json` to `list`, `brightness`, `input`, or `probe` for JSON output. With more than one monitor, pick one with `-d`:
+
+```sh
+monctl list -json
+monctl brightness 40 -d msi-3cf0-ab12cd34
+```
+
+`monctl probe` prints what a monitor reports. It helps add a new model, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor). Run `monctl` alone for the full command list.
 
 ## Tray menu
 
