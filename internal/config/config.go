@@ -19,6 +19,13 @@ const FileName = "config.json"
 // Config is the content of the settings file.
 type Config struct {
 	Inputs map[string]Input `json:"inputs"`
+	// BrightnessKeys set to false keeps monctl away from the brightness keys.
+	BrightnessKeys *bool `json:"brightnessKeys"`
+}
+
+// UsesBrightnessKeys reports whether monctl may handle the brightness keys.
+func (c Config) UsesBrightnessKeys() bool {
+	return c.BrightnessKeys == nil || *c.BrightnessKeys
 }
 
 // Input changes how one input of the monitor profile is shown.

@@ -4,6 +4,15 @@ All notable changes to this project are written here. The format follows [Keep a
 
 ## [Unreleased]
 
+### Added
+
+- On GNOME, the tray binds the brightness keys to monctl by itself the first time it runs, on computers without a backlight of their own.
+- `brightnessKeys` setting in the config. Set it to `false` to keep monctl away from the brightness keys on GNOME and macOS.
+
+### Changed
+
+- The Debian package turns on the tray service for every user. Run `systemctl --user mask monctl-tray.service` to turn it off for yourself.
+
 ## [0.2.0] - 2026-11-21
 
 ### Added

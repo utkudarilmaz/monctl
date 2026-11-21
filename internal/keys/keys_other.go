@@ -1,4 +1,4 @@
-//go:build !darwin
+//go:build !darwin && !linux
 
 // Package keys catches the brightness keys of the keyboard.
 package keys

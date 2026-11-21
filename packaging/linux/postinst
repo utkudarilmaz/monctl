@@ -1,7 +1,12 @@
 #!/bin/sh
 set -e
 
-if [ "$1" = "configure" ] && command -v udevadm >/dev/null 2>&1; then
-	udevadm control -R || true
-	udevadm trigger -s i2c-dev || true
+if [ "$1" = "configure" ]; then
+	if command -v udevadm >/dev/null 2>&1; then
+		udevadm control -R || true
+		udevadm trigger -s i2c-dev || true
+	fi
+	if command -v systemctl >/dev/null 2>&1 && dpkg --compare-versions "$2" lt 0.3.0; then
+		systemctl --global enable monctl-tray.service >/dev/null 2>&1 || true
+	fi
 fi

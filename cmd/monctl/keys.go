@@ -33,7 +33,7 @@ func (m trayMonitor) Write(value int) error {
 }
 
 // serveKeys makes the running tray the fast way to change the brightness: it
-// answers `monctl brightness` commands and, on macOS, the brightness keys.
+// answers `monctl brightness` commands and takes care of the brightness keys.
 func serveKeys(ctl trayController, report func(error)) func() {
 	d := dimmer.New(trayMonitor{ctl}, report)
 	go d.Probe()
@@ -59,6 +59,9 @@ func serveKeys(ctl trayController, report func(error)) func() {
 				osd.Brightness(current, limit)
 			}
 		}()
+	}
+	if cfg, err := ctl.app.config(); err != nil || !cfg.UsesBrightnessKeys() {
+		return stop
 	}
 	if err := hotkeys.Start(step, d.Usable, missed); err != nil {
 		report(err)

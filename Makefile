@@ -128,9 +128,9 @@ deb: dist ## Build the Debian package from the release archive
 	@cp README.md $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
 	@cp LICENSE $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/copyright
 	@cp -R $(STAGE)/licenses $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
-	@cp packaging/linux/postinst $(DEB_ROOT)/DEBIAN/postinst
+	@cp packaging/linux/postinst packaging/linux/prerm $(DEB_ROOT)/DEBIAN/
 	@chmod -R u=rwX,go=rX $(DEB_ROOT)
-	@chmod 755 $(DEB_ROOT)/DEBIAN/postinst $(DEB_ROOT)/usr/bin/$(APPLICATION)
+	@chmod 755 $(DEB_ROOT)/DEBIAN/postinst $(DEB_ROOT)/DEBIAN/prerm $(DEB_ROOT)/usr/bin/$(APPLICATION)
 	@sed -e 's/@VERSION@/$(DEB_VERSION)/' -e 's/@ARCH@/$(GOARCH)/' packaging/linux/control > $(DEB_ROOT)/DEBIAN/control
 	@dpkg-deb --root-owner-group --build $(DEB_ROOT) $(DIST_DIR)/$(APPLICATION)_$(DEB_VERSION)_$(GOARCH).deb >/dev/null
 	@echo "Package: $(DIST_DIR)/$(APPLICATION)_$(DEB_VERSION)_$(GOARCH).deb"
