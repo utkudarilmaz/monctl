@@ -9,7 +9,7 @@ class Monctl < Formula
   depends_on "go" => :build
 
   def install
-    system "go", "build", *std_go_args(ldflags: "-s -w -X main.version=v#{version}"), "./cmd/monctl"
+    system "go", "build", *std_go_args(ldflags: "-X main.version=v#{version}"), "./cmd/monctl"
   end
 
   service do
