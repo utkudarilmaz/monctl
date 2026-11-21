@@ -30,14 +30,6 @@ brew trust utkudarilmaz/monctl
 brew install monctl
 ```
 
-To run the [tray](#tray-menu) at login:
-
-```sh
-brew services start monctl
-```
-
-## Configuration
-
 ### Turn on the tray
 
 Every package brings the tray, but it does not start by itself. Turn it on once, and it starts at every login:
@@ -53,6 +45,8 @@ On GNOME, two extensions are also needed, and the package does not turn them on:
 - the monctl extension, for the brightness indicator: log out and in once after the install, then run `gnome-extensions enable monctl@utkudarilmaz.github.io`
 
 More about the service is under [Run the tray as a service](#run-the-tray-as-a-service).
+
+## Configuration
 
 ### Config file
 
