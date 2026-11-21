@@ -126,3 +126,15 @@ func TestLoadRejectsBadBefore(t *testing.T) {
 		})
 	}
 }
+
+func TestBrightnessKeysAreOnUnlessTurnedOff(t *testing.T) {
+	for content, want := range map[string]bool{`{}`: true, `{"brightnessKeys": true}`: true, `{"brightnessKeys": false}`: false} {
+		c, err := Load(write(t, content))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := c.UsesBrightnessKeys(); got != want {
+			t.Errorf("%s: UsesBrightnessKeys() = %v, want %v", content, got, want)
+		}
+	}
+}

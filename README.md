@@ -18,11 +18,13 @@ Builds exist for amd64 and arm64.
 sudo apt install ./monctl_<version>_amd64.deb
 ```
 
-The tray does not start by itself. Turn it on once, and it starts at every login:
+The package turns on the tray for every user, so it starts at the next login. To start it now:
 
 ```sh
-systemctl --user enable --now monctl-tray.service
+systemctl --user start monctl-tray.service
 ```
+
+On a computer without a backlight of its own, the tray binds the brightness keys to monctl the first time it runs. They show under Settings, Keyboard, Custom Shortcuts.
 
 On GNOME, two extensions are also needed, and the package does not turn them on:
 
@@ -72,6 +74,8 @@ The keys are the input ids from `monctl input`. Ids the monitor does not have ar
 | `label` | The name shown for the input. You can use it as a name: `monctl input "Desk computer"`. |
 | `hidden` | Leaves the input out of the list. It still works by its id. |
 | `before` | A command monctl runs before it switches to the input, for example to wake the other computer. |
+
+Next to `inputs`, `"brightnessKeys": false` keeps monctl away from the brightness keys of the keyboard.
 
 ### Run a command before a switch
 
@@ -180,23 +184,19 @@ gnome-extensions enable ubuntu-appindicators@ubuntu.com
 
 ### Run the tray as a service
 
-The tray does not start at login by default. As a service, it starts at login and restarts after a crash. Picking Quit stops it until the next login.
+As a service, the tray starts at login and restarts after a crash. Picking Quit stops it until the next login.
 
-On Linux, the Debian package installs a systemd user service. Turn it on:
-
-```sh
-systemctl --user enable --now monctl-tray.service
-```
+On Linux, the Debian package installs a systemd user service and turns it on for every user.
 
 It starts with the graphical session. After 5 failed starts in a minute, it gives up. On GNOME it still needs the AppIndicator extension. Without it the service fails, and the status shows the install steps.
 
 ```sh
 systemctl --user status monctl-tray.service    # see its state
 journalctl --user -u monctl-tray.service       # see its messages
-systemctl --user disable --now monctl-tray.service   # turn it off
+systemctl --user mask --now monctl-tray.service     # turn it off for you
 ```
 
-For a build from source, copy `packaging/linux/monctl-tray.service` to `~/.config/systemd/user/`. If monctl is not in `/usr/bin`, change the `ExecStart` path in the copy.
+For a build from source, copy `packaging/linux/monctl-tray.service` to `~/.config/systemd/user/` and run `systemctl --user enable --now monctl-tray.service`. If monctl is not in `/usr/bin`, change the `ExecStart` path in the copy.
 
 On macOS, copy monctl to `/usr/local/bin/`. Then run this from the unpacked archive and log in again:
 
