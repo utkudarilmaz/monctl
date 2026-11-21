@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/utkudarilmaz/monctl/internal/ddc"
 	"github.com/utkudarilmaz/monctl/internal/monitor"
 	"github.com/utkudarilmaz/monctl/internal/remote"
 )
@@ -38,6 +39,9 @@ func (a app) brightness(opts options) int {
 		current, limit, err := a.remote(command, value)
 		if err == nil {
 			return a.printBrightness(opts, "", monitor.Level{Current: current, Max: limit})
+		}
+		if err.Error() == silentReply {
+			return a.fail(ddc.ErrNoReply)
 		}
 		if !errors.Is(err, remote.ErrNoServer) {
 			return a.fail(err)

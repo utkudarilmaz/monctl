@@ -317,3 +317,15 @@ func TestHandleRemote(t *testing.T) {
 		t.Fatal("an unknown command must fail")
 	}
 }
+
+func TestBrightnessThroughTheTrayExplainsASilentMonitor(t *testing.T) {
+	r := newRig(msi)
+	r.fake.Asleep = true
+	d := dimmer.New(trayMonitor{trayController{app: r.app}}, func(error) {})
+	r.app.remote = handleRemote(d)
+
+	r.run(t, 1, "brightness", "+10")
+	if !strings.Contains(r.errOut.String(), "another\ncomputer") {
+		t.Fatalf("stderr %q does not explain the silent monitor", r.errOut)
+	}
+}

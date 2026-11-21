@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"sync/atomic"
 
+	"github.com/utkudarilmaz/monctl/internal/ddc"
 	"github.com/utkudarilmaz/monctl/internal/dimmer"
 	hotkeys "github.com/utkudarilmaz/monctl/internal/keys"
 	"github.com/utkudarilmaz/monctl/internal/remote"
@@ -57,15 +59,23 @@ func serveKeys(ctl trayController, report func(error)) func() {
 	return stop
 }
 
+// silentReply is what the tray answers when the monitor did not answer it, so
+// the command can print the same help as when it asks the monitor itself.
+const silentReply = "monitor did not answer"
+
 func handleRemote(d *dimmer.Dimmer) remote.Handler {
-	return func(command string, value int) (int, int, error) {
+	return func(command string, value int) (current, limit int, err error) {
 		switch command {
 		case "step":
-			return d.Step(value)
+			current, limit, err = d.Step(value)
 		case "set":
-			return d.Set(value)
+			current, limit, err = d.Set(value)
 		default:
-			return 0, 0, fmt.Errorf("unknown command %q", command)
+			err = fmt.Errorf("unknown command %q", command)
 		}
+		if errors.Is(err, ddc.ErrNoReply) {
+			err = errors.New(silentReply)
+		}
+		return current, limit, err
 	}
 }
