@@ -98,16 +98,6 @@ The keys are the input ids from `monctl input`. Ids the monitor does not have ar
 | `hidden` | Leaves the input out of the list. It still works by its id. |
 | `before` | A command monctl runs before it switches to the input, for example to wake the other computer. |
 
-### Input names
-
-You do not have to write labels. monctl finds the names like this:
-
-- The input the monitor shows is this computer, because a monitor only answers the computer it shows. That input gets the name of this computer.
-- An input with a `before` command that runs `monctl wake` on the other computer gets the name of that computer. `monctl wake` prints the name, and monctl reads it. The name is known after the first switch to that input.
-- Any other input keeps the name of its port, such as "DisplayPort".
-
-A `label` in the config always wins. A learned name that matches the id or label of another input is not used. The names monctl learned are kept in `~/.local/state/monctl/names.json`, or under `$XDG_STATE_HOME` when that variable is set. Delete the file to forget them. When you move a computer to another port, the names correct themselves.
-
 ### Run a command before a switch
 
 `before` is a command monctl runs before it switches the monitor to that input. Write the program and each argument as its own word, because no shell is used. If the command fails or takes longer than 20 seconds, monctl prints a warning and switches anyway. It runs for `monctl input <name>` and for the tray, not for `monctl input -raw`.
