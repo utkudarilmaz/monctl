@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 
 	"github.com/utkudarilmaz/monctl/internal/bus"
 	"github.com/utkudarilmaz/monctl/internal/config"
@@ -73,6 +74,8 @@ type app struct {
 	runTray  func(tray.Controller, func(error)) error
 	wake     func() error
 	exec     func(argv []string) error
+	pause    func(time.Duration)
+	lock     func() func()
 }
 
 var errNoMonitor = errors.New("no external monitor found")
@@ -89,6 +92,10 @@ func main() {
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
+	return realApp(stdout, stderr).run(args)
+}
+
+func realApp(stdout, stderr io.Writer) app {
 	return app{
 		stdout:   stdout,
 		stderr:   stderr,
@@ -99,7 +106,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		runTray:  tray.Run,
 		wake:     wake.Screen,
 		exec:     func(argv []string) error { return runCommand(argv, beforeTimeout) },
-	}.run(args)
+		pause:    time.Sleep,
+		lock:     lockMonitor,
+	}
 }
 
 func loadProfiles() ([]profile.Profile, error) {
@@ -252,12 +261,14 @@ func (a app) connect(id string) (*session, error) {
 	if err != nil {
 		return nil, err
 	}
+	unlock := a.lock()
 	b, err := a.open(disp)
 	if err != nil {
+		unlock()
 		return nil, err
 	}
 
-	s := &session{display: disp, client: ddc.New(b, a.ddc...), config: cfg, close: func() { _ = b.Close() }}
+	s := &session{display: disp, client: ddc.New(b, a.ddc...), config: cfg, close: func() { _ = b.Close(); unlock() }}
 	if p, ok := profile.Find(all, disp.Info); ok {
 		s.profile = &p
 	}
