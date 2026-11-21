@@ -8,7 +8,7 @@ Change your monitor's settings from the computer instead of the buttons on the m
 
 ## Install
 
-Packages are on the [GitHub releases page](https://github.com/utkudarilmaz/monctl/releases). You can also [build from source](#build-from-source).
+Packages are on the [GitHub releases page](https://github.com/utkudarilmaz/monctl/releases). You can also [build from source](docs/build-from-source.md).
 
 ### Debian package
 
@@ -18,7 +18,7 @@ Builds exist for amd64 and arm64.
 sudo apt install ./monctl_<version>_amd64.deb
 ```
 
-The package installs `/usr/bin/monctl` and the udev rule, so you can skip [Linux setup](#linux-setup). It also installs the docs, the licence texts of the libraries monctl uses, and the [tray service](#run-the-tray-as-a-service) in `/usr/lib/systemd/user/`.
+The package installs `/usr/bin/monctl` and the udev rule, so you need no extra setup. It also installs the docs, the licence texts of the libraries monctl uses, and the [tray service](#run-the-tray-as-a-service) in `/usr/lib/systemd/user/`.
 
 ### macOS with Homebrew
 
@@ -46,33 +46,6 @@ sudo cp monctl_<version>_darwin_arm64/monctl /usr/local/bin/
 ```
 
 The binary is not signed with an Apple Developer ID, so macOS may block the first start of a downloaded copy. Allow it in System Settings under Privacy and Security. A copy built on the same Mac with `make build` is not affected.
-
-### Build from source
-
-You need Go 1.25 or newer. On macOS, also install the Xcode command line tools, because the macOS part uses cgo with the IOKit framework.
-
-```sh
-make build
-./bin/monctl version
-```
-
-On Linux, then follow [Linux setup](#linux-setup).
-
-#### Linux setup
-
-These steps are only for a build from source. The Debian package does them for you.
-
-monctl needs access to the I2C buses of your graphics card. Install the udev rule from this repo:
-
-```sh
-sudo cp packaging/linux/60-monctl.rules /etc/udev/rules.d/
-sudo udevadm control -R
-sudo udevadm trigger -s i2c-dev
-```
-
-monctl prints these commands when it cannot open a bus.
-
-The rule gives the logged in user read and write access to every I2C bus on the graphics card, not only the ones that lead to a monitor. monctl itself only opens buses that belong to a PCI graphics device. It never opens SMBus or other system buses.
 
 ## Configuration
 
