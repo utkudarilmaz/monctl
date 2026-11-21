@@ -75,7 +75,9 @@ func (a app) tray(opts options) int {
 		return a.usageError("tray takes only -d <id>")
 	}
 	report := func(err error) { _, _ = fmt.Fprintf(a.stderr, "monctl: %v\n", err) }
-	if err := a.runTray(trayController{app: a, display: opts.display}, report); err != nil {
+	ctl := trayController{app: a, display: opts.display}
+	defer a.serve(ctl, report)()
+	if err := a.runTray(ctl, report); err != nil {
 		return a.fail(err)
 	}
 	return 0

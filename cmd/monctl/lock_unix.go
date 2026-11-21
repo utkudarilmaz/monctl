@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/utkudarilmaz/monctl/internal/remote"
 )
 
 // lockMonitor waits until no other monctl of this user talks to a monitor.
@@ -25,9 +27,5 @@ func lockMonitor() func() {
 }
 
 func lockPath() string {
-	dir := os.Getenv("XDG_RUNTIME_DIR")
-	if !filepath.IsAbs(dir) {
-		dir = os.TempDir()
-	}
-	return filepath.Join(dir, fmt.Sprintf("monctl-%d.lock", os.Getuid()))
+	return filepath.Join(remote.Dir(), fmt.Sprintf("monctl-%d.lock", os.Getuid()))
 }

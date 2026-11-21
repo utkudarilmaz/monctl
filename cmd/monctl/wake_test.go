@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/utkudarilmaz/monctl/internal/bus/bustest"
 	"github.com/utkudarilmaz/monctl/internal/config"
+	"github.com/utkudarilmaz/monctl/internal/dimmer"
 )
 
 func before(r *rig, id string, argv ...string) *[][]string {
@@ -244,5 +246,86 @@ func TestLastLine(t *testing.T) {
 		if got := lastLine(in); got != want {
 			t.Errorf("lastLine(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestBrightnessChangeGoesToTheRunningTray(t *testing.T) {
+	r := newRig(msi)
+	var asked []string
+	r.app.remote = func(command string, value int) (int, int, error) {
+		asked = append(asked, fmt.Sprintf("%s %d", command, value))
+		return 42, 100, nil
+	}
+
+	r.run(t, 0, "brightness", "+10")
+	r.run(t, 0, "brightness", "-10")
+	r.run(t, 0, "brightness", "30")
+	if got := r.out.String(); got != "42\n" {
+		t.Fatalf("output = %q, want the value the tray reported", got)
+	}
+	if want := []string{"step 10", "step -10", "set 30"}; !reflect.DeepEqual(asked, want) || len(r.opened) != 0 {
+		t.Fatalf("asked %v, opened %v; want %v and no monitor opened", asked, r.opened, want)
+	}
+
+	r.run(t, 0, "brightness", "-json", "+5")
+	var got map[string]any
+	r.decode(t, &got)
+	if got["brightness"] != float64(42) || got["max"] != float64(100) {
+		t.Fatalf("JSON = %v", got)
+	}
+}
+
+func TestBrightnessSkipsTheTrayForReadsAndPickedMonitors(t *testing.T) {
+	r := newRig(msi)
+	asked := 0
+	r.app.remote = func(string, int) (int, int, error) { asked++; return 0, 0, nil }
+
+	r.run(t, 0, "brightness")
+	r.run(t, 0, "brightness", "-d", "msi-3cf0", "+10")
+	if asked != 0 || len(r.opened) != 2 {
+		t.Fatalf("asked the tray %d times, opened %v", asked, r.opened)
+	}
+}
+
+func TestBrightnessTrayErrorIsShown(t *testing.T) {
+	r := newRig(msi)
+	r.app.remote = func(string, int) (int, int, error) { return 0, 0, errors.New("monitor is silent") }
+
+	r.run(t, 1, "brightness", "+10")
+	if !strings.Contains(r.errOut.String(), "monitor is silent") || len(r.opened) != 0 {
+		t.Fatalf("stderr %q, opened %v", r.errOut, r.opened)
+	}
+}
+
+func TestHandleRemote(t *testing.T) {
+	r := newRig(msi)
+	d := dimmer.New(trayMonitor{trayController{app: r.app}}, func(error) {})
+	handle := handleRemote(d)
+
+	if current, limit, err := handle("step", 10); err != nil || current != 60 || limit != 100 {
+		t.Fatalf("step = %d, %d, %v", current, limit, err)
+	}
+	d.Wait()
+	if current, _, err := handle("set", 20); err != nil || current != 20 {
+		t.Fatalf("set = %d, %v", current, err)
+	}
+	d.Wait()
+	if r.fake.VCP[0x10].Current != 20 {
+		t.Fatalf("monitor at %d, want 20", r.fake.VCP[0x10].Current)
+	}
+	if _, _, err := handle("reboot", 1); err == nil {
+		t.Fatal("an unknown command must fail")
+	}
+}
+
+func TestBrightnessThroughTheTrayExplainsASilentMonitor(t *testing.T) {
+	r := newRig(msi)
+	r.fake.Asleep = true
+	d := dimmer.New(trayMonitor{trayController{app: r.app}}, func(error) {})
+	r.app.remote = handleRemote(d)
+
+	r.run(t, 1, "brightness", "+10")
+	if !strings.Contains(r.errOut.String(), "another\ncomputer") {
+		t.Fatalf("stderr %q does not explain the silent monitor", r.errOut)
 	}
 }

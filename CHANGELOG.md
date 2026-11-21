@@ -6,6 +6,8 @@ All notable changes to this project are written here. The format follows [Keep a
 
 ### Added
 
+- The tray on macOS catches the brightness keys and changes the external monitor.
+- `monctl brightness` with a value hands the change to a running tray, which is much faster and merges quick changes.
 - Homebrew formula for macOS, with a service that runs the tray at login.
 
 ### Changed

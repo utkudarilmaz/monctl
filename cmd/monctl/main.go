@@ -18,6 +18,7 @@ import (
 	"github.com/utkudarilmaz/monctl/internal/display"
 	"github.com/utkudarilmaz/monctl/internal/monitor"
 	"github.com/utkudarilmaz/monctl/internal/profile"
+	"github.com/utkudarilmaz/monctl/internal/remote"
 	"github.com/utkudarilmaz/monctl/internal/tray"
 	"github.com/utkudarilmaz/monctl/internal/wake"
 	"github.com/utkudarilmaz/monctl/profiles"
@@ -76,6 +77,8 @@ type app struct {
 	exec     func(argv []string) error
 	pause    func(time.Duration)
 	lock     func() func()
+	remote   func(command string, value int) (current, limit int, err error)
+	serve    func(trayController, func(error)) func()
 }
 
 var errNoMonitor = errors.New("no external monitor found")
@@ -108,6 +111,8 @@ func realApp(stdout, stderr io.Writer) app {
 		exec:     func(argv []string) error { return runCommand(argv, beforeTimeout) },
 		pause:    time.Sleep,
 		lock:     lockMonitor,
+		remote:   func(command string, value int) (int, int, error) { return remote.Send(remote.Path(), command, value) },
+		serve:    serveKeys,
 	}
 }
 
