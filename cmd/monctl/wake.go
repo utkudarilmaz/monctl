@@ -65,7 +65,9 @@ func (a app) switchTo(s *session, name string) (monitor.Input, error) {
 			_, _ = fmt.Fprintf(a.stderr, "monctl: %v: %v\n", errBefore, err)
 		}
 		if a.remember(s, in.ID, names.Parse(output)) {
-			in, _ = s.monitor.Lookup(in.ID)
+			if named, err := s.monitor.Lookup(in.ID); err == nil {
+				in = named
+			}
 		}
 	}
 	for range switchAttempts {

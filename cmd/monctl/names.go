@@ -13,12 +13,10 @@ import (
 func (s *session) relabel() {
 	cfg := s.config
 	if s.profile != nil {
-		cfg.Inputs = maps.Clone(s.config.Inputs)
+		cfg.Inputs = map[string]config.Input{}
+		maps.Copy(cfg.Inputs, s.config.Inputs)
 		for id, name := range s.names.Of(s.profile.Name) {
 			if in := cfg.Inputs[id]; in.Label == "" {
-				if cfg.Inputs == nil {
-					cfg.Inputs = map[string]config.Input{}
-				}
 				in.Label = name
 				cfg.Inputs[id] = in
 			}
