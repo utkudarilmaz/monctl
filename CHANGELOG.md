@@ -4,6 +4,8 @@ All notable changes to this project are written here. The format follows [Keep a
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-21
+
 ### Added
 
 - `list` command that shows the external monitors monctl can reach.
@@ -19,13 +21,7 @@ All notable changes to this project are written here. The format follows [Keep a
 - Debian packages for amd64 and arm64, and release archives for Linux and macOS.
 - `wake` command that turns on the screen of the computer it runs on.
 - `before` setting per input in the config: a command monctl runs before it switches to that input, for example to wake the other computer over SSH.
-- The tray can run as a systemd user service on Linux.
+- The tray can run as a systemd user service on Linux and as a launchd agent on macOS.
 
-### Changed
-
-- The Debian package ships the tray service file in place of the autostart desktop file.
-
-### Fixed
-
-- The tray icon now shows on GNOME. It was empty before.
-- The tray no longer prints an error when the monitor shows another computer.
+[Unreleased]: https://github.com/utkudarilmaz/monctl/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/utkudarilmaz/monctl/releases/tag/v0.1.0
