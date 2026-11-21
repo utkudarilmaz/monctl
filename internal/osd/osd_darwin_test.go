@@ -4,6 +4,6 @@ import "testing"
 
 func TestTheSystemIndicatorIsFound(t *testing.T) {
 	if !Available() {
-		t.Skip("this macOS version has no indicator class monctl knows")
+		t.Skip("this macOS version has no indicator monctl knows")
 	}
 }
