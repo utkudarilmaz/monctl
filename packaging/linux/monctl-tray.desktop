@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=monctl
-Comment=Monitor brightness and input in the top bar
-Exec=monctl tray
-Icon=video-display
-Terminal=false
-X-GNOME-Autostart-enabled=true

@@ -64,6 +64,6 @@ On macOS, `monctl` only opens display services marked external. Keep it that way
 Maintainers only.
 
 1. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version.
-2. Push a tag such as `v0.1.0`.
+2. Push a tag such as `v0.1.0`. A `.deb` built from a commit without a version tag gets the version `0.0.0+<commit>`.
 3. The release workflow builds Linux amd64, Linux arm64, and macOS arm64. It creates a draft GitHub release with the archives, the `.deb` files, and `checksums.txt`.
 4. Check the draft and publish it by hand.

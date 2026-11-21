@@ -132,17 +132,37 @@ gnome-extensions enable ubuntu-appindicators@ubuntu.com
 
 `monctl tray` prints these steps when the extension is missing. macOS needs no setup.
 
-The tray does not start at login by default. To turn that on with the Debian package on GNOME:
+### Run the tray as a service
+
+The tray does not start at login by default. As a service, it starts at login and restarts after a crash. Picking Quit stops it until the next login.
+
+On Linux, the Debian package installs a systemd user service. Turn it on:
 
 ```sh
-mkdir -p ~/.config/autostart
-cp /usr/share/monctl/monctl-tray.desktop ~/.config/autostart/
+systemctl --user enable --now monctl-tray.service
 ```
 
-On macOS, run this from the unpacked archive, then log in again. The file expects monctl in `/usr/local/bin/monctl`.
+It starts with the graphical session. After 5 failed starts in a minute, it gives up. On GNOME it still needs the AppIndicator extension. Without it the service fails, and the status shows the install steps.
+
+```sh
+systemctl --user status monctl-tray.service    # see its state
+journalctl --user -u monctl-tray.service       # see its messages
+systemctl --user disable --now monctl-tray.service   # turn it off
+```
+
+For a build from source, copy `packaging/linux/monctl-tray.service` to `~/.config/systemd/user/`. If monctl is not in `/usr/bin`, change the `ExecStart` path in the copy.
+
+On macOS, copy monctl to `/usr/local/bin/`. Then run this from the unpacked archive and log in again:
 
 ```sh
 cp packaging/io.github.utkudarilmaz.monctl.tray.plist ~/Library/LaunchAgents/
+```
+
+To start it now without logging out, and to stop and remove it:
+
+```sh
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.utkudarilmaz.monctl.tray.plist
+launchctl bootout gui/$(id -u)/io.github.utkudarilmaz.monctl.tray
 ```
 
 ## How input switching behaves
@@ -166,7 +186,7 @@ Builds exist for amd64 and arm64.
 sudo apt install ./monctl_<version>_amd64.deb
 ```
 
-The package installs `/usr/bin/monctl` and the udev rule, so you can skip [Linux setup](#linux-setup). It also installs the docs, the licence texts of the libraries monctl uses, and a tray start file in `/usr/share/monctl/`.
+The package installs `/usr/bin/monctl` and the udev rule, so you can skip [Linux setup](#linux-setup). It also installs the docs, the licence texts of the libraries monctl uses, and the [tray service](#run-the-tray-as-a-service) in `/usr/lib/systemd/user/`.
 
 ### macOS archive
 

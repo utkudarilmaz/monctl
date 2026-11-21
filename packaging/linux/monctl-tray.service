@@ -1,0 +1,15 @@
+[Unit]
+Description=monctl tray menu
+Documentation=https://github.com/utkudarilmaz/monctl
+PartOf=graphical-session.target
+After=graphical-session.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+ExecStart=/usr/bin/monctl tray
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
