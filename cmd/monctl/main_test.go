@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"errors"
+	"io"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -137,5 +139,14 @@ func TestListShowsHeaderAndOneLinePerDisplay(t *testing.T) {
 	}
 	if !strings.Contains(lines[1], "/dev/i2c-12") || !strings.Contains(lines[2], "/dev/i2c-13") {
 		t.Fatalf("rows out of order: %q", out.String())
+	}
+}
+
+func TestRealAppHasEveryFunctionSet(t *testing.T) {
+	v := reflect.ValueOf(realApp(io.Discard, io.Discard))
+	for i := range v.NumField() {
+		if f := v.Field(i); f.Kind() == reflect.Func && f.IsNil() {
+			t.Errorf("app.%s is not set", v.Type().Field(i).Name)
+		}
 	}
 }

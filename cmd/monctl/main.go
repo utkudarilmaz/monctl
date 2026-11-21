@@ -91,6 +91,10 @@ func main() {
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
+	return realApp(stdout, stderr).run(args)
+}
+
+func realApp(stdout, stderr io.Writer) app {
 	return app{
 		stdout:   stdout,
 		stderr:   stderr,
@@ -101,7 +105,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		runTray:  tray.Run,
 		wake:     wake.Screen,
 		exec:     func(argv []string) error { return runCommand(argv, beforeTimeout) },
-	}.run(args)
+		pause:    time.Sleep,
+	}
 }
 
 func loadProfiles() ([]profile.Profile, error) {
