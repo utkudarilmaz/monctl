@@ -58,7 +58,7 @@ make build
 
 On Linux, then follow [Linux setup](#linux-setup).
 
-## Linux setup
+#### Linux setup
 
 These steps are only for a build from source. The Debian package does them for you.
 
@@ -74,7 +74,7 @@ monctl prints these commands when it cannot open a bus.
 
 The rule gives the logged in user read and write access to every I2C bus on the graphics card, not only the ones that lead to a monitor. monctl itself only opens buses that belong to a PCI graphics device. It never opens SMBus or other system buses.
 
-## macOS setup
+#### macOS setup
 
 No setup is needed. There is no udev rule and no sudo. Only the [brightness keys](#macos) need the Accessibility permission.
 
