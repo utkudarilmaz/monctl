@@ -215,7 +215,7 @@ launchctl bootout gui/$(id -u)/io.github.utkudarilmaz.monctl.tray
 
 | Monitor | Brightness | Input switching |
 |---|---|---|
-| MSI MPG 274URDFW E16M | yes | DisplayPort and USB-C. HDMI values are not measured yet. |
+| MSI MPG 274URDFW E16M | yes | DisplayPort and USB-C |
 
 On macOS, this monitor is tested over USB-C.
 
