@@ -8,7 +8,7 @@ Change your monitor's settings from the computer instead of the buttons on the m
 
 ## Install
 
-Packages are on the [GitHub releases page](https://github.com/utkudarilmaz/monctl/releases). You can also [build from source](docs/build-from-source.md).
+Packages are on the [GitHub releases page](https://github.com/utkudarilmaz/monctl/releases). For the macOS archive or a build from source, see [other ways to install](docs/other-installs.md).
 
 ### Debian package
 
@@ -35,17 +35,6 @@ To run the [tray](#tray-menu) at login:
 ```sh
 brew services start monctl
 ```
-
-### macOS archive
-
-Apple Silicon only. The archive holds the `monctl` binary and a LaunchAgent file for the [tray](#tray-menu).
-
-```sh
-tar -xzf monctl_<version>_darwin_arm64.tar.gz
-sudo cp monctl_<version>_darwin_arm64/monctl /usr/local/bin/
-```
-
-The binary is not signed with an Apple Developer ID, so macOS may block the first start of a downloaded copy. Allow it in System Settings under Privacy and Security. A copy built on the same Mac with `make build` is not affected.
 
 ## Configuration
 
