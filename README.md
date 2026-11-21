@@ -88,7 +88,7 @@ Every package brings the tray, but it does not start by itself. Turn it on once,
 On GNOME, two extensions are also needed, and the package does not turn them on:
 
 - the AppIndicator extension, so GNOME shows tray icons at all, see [Tray menu](#tray-menu)
-- the monctl extension, for the brightness indicator, see [Brightness keys](#gnome)
+- the monctl extension, for the brightness indicator: log out and in once after the install, then run `gnome-extensions enable monctl@utkudarilmaz.github.io`
 
 More about the service is under [Run the tray as a service](#run-the-tray-as-a-service).
 
@@ -254,55 +254,7 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.utkudarilmaz.m
 launchctl bootout gui/$(id -u)/io.github.utkudarilmaz.monctl.tray
 ```
 
-## Brightness keys
-
-The brightness keys of your keyboard can change the external monitor. On macOS this needs the [tray](#tray-menu) to be running. On GNOME the keys work without it, but the tray makes them faster and shows the indicator. The tray remembers the brightness, so a key press costs one short write, and quick presses or a held key are merged.
-
-### macOS
-
-The tray catches the brightness keys itself. One press moves the brightness by 5 percent and shows the system brightness indicator on the monitor. While the monitor shows another computer, the keys keep their normal job.
-
-macOS has to allow this once. At the first start it asks for the Accessibility permission. Open System Settings, Privacy and Security, Accessibility, turn monctl on, and start the tray again:
-
-```sh
-brew services restart monctl
-```
-
-monctl is not signed with an Apple Developer ID, so macOS drops the permission after each upgrade. Turn it on again the same way. Other apps that catch the same keys, such as MonitorControl, should not run at the same time.
-
-The brightness slider in System Settings only works for Apple displays. monctl cannot change that.
-
-### GNOME
-
-Bind the keys to monctl in Settings, Keyboard, View and Customise Shortcuts, Custom Shortcuts:
-
-| Name | Command | Shortcut |
-|---|---|---|
-| monctl brighter | `monctl brightness +5` | the brightness up key |
-| monctl dimmer | `monctl brightness -5` | the brightness down key |
-
-GNOME does not let a normal program show its on-screen indicator, so the Debian package ships a small GNOME Shell extension that does it for monctl. Log out and in once after installing the package, then turn it on:
-
-```sh
-gnome-extensions enable monctl@utkudarilmaz.github.io
-```
-
-The indicator shows when the tray changes the brightness, which covers the shortcuts above. Without the extension everything else still works. Installed from the archive, copy `packaging/gnome-extension` to `~/.local/share/gnome-shell/extensions/monctl@utkudarilmaz.github.io` first.
-
-While the tray runs, `monctl brightness` with a value hands the change to the tray, which is about ten times faster than doing it alone. Without the tray the command still works.
-
-## How input switching behaves
-
-- A monitor only answers on the input it is showing. A computer can send the picture to another computer, but it cannot pull it back.
-- When the monitor shows another computer, monctl says so.
-- The target computer must be awake and sending a picture. If its screen is asleep, the monitor finds no picture and falls back to the old input. With the monitor's automatic input scan turned off, it stays black instead. A laptop with a closed lid may go to sleep when the picture leaves it.
-- To fix this, wake the target computer first with a [`before` command](#configuration). In tests, switches with this step worked every time, also onto a blanked screen and onto a laptop with a closed lid.
-- monctl watches the monitor for about 14 seconds after a switch. If the monitor comes back, monctl switches again, up to three times. A first try can wake the other computer through the cable, for example at its login screen, so the second try often works. `monctl input <name>` returns only after this check.
-- Leave the monitor's automatic input scan on, so a failed switch falls back to a picture instead of a black screen.
-- Only one monctl command talks to the monitor at a time. Others wait for their turn, so quick key presses that run `monctl brightness +10` add up in order.
-- After a switch, the monitor needs around ten seconds before it answers again.
-
-## Supported monitors
+## Tested monitors
 
 | Monitor | Brightness | Input switching |
 |---|---|---|
