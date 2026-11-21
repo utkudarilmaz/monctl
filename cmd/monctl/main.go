@@ -75,6 +75,7 @@ type app struct {
 	wake     func() error
 	exec     func(argv []string) error
 	pause    func(time.Duration)
+	lock     func() func()
 }
 
 var errNoMonitor = errors.New("no external monitor found")
@@ -106,6 +107,7 @@ func realApp(stdout, stderr io.Writer) app {
 		wake:     wake.Screen,
 		exec:     func(argv []string) error { return runCommand(argv, beforeTimeout) },
 		pause:    time.Sleep,
+		lock:     lockMonitor,
 	}
 }
 
@@ -259,12 +261,14 @@ func (a app) connect(id string) (*session, error) {
 	if err != nil {
 		return nil, err
 	}
+	unlock := a.lock()
 	b, err := a.open(disp)
 	if err != nil {
+		unlock()
 		return nil, err
 	}
 
-	s := &session{display: disp, client: ddc.New(b, a.ddc...), config: cfg, close: func() { _ = b.Close() }}
+	s := &session{display: disp, client: ddc.New(b, a.ddc...), config: cfg, close: func() { _ = b.Close(); unlock() }}
 	if p, ok := profile.Find(all, disp.Info); ok {
 		s.profile = &p
 	}

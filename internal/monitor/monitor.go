@@ -108,7 +108,8 @@ func (m *Monitor) Brightness() (Level, error) {
 }
 
 // SetBrightness sets the brightness, kept between 0 and the monitor's
-// maximum, and returns what the monitor reports afterwards.
+// maximum, and returns the value it sent. It is not read back, which keeps a
+// change short enough for repeated key presses.
 func (m *Monitor) SetBrightness(value int) (Level, error) {
 	level, err := m.Brightness()
 	if err != nil {
@@ -132,7 +133,7 @@ func (m *Monitor) writeBrightness(value, limit int) (Level, error) {
 	if err := m.control.SetVCP(vcpBrightness, uint16(value)); err != nil {
 		return Level{}, err
 	}
-	return m.Brightness()
+	return Level{Current: value, Max: limit}, nil
 }
 
 // Source reads the input the monitor shows now.

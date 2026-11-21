@@ -63,6 +63,7 @@ func newApp(displays []display.Display, err error) (app, *bytes.Buffer, *bytes.B
 		config:   func() (config.Config, error) { return config.Config{}, nil },
 		ddc:      []ddc.Option{ddc.WithSleep(func(time.Duration) {})},
 		pause:    func(time.Duration) {},
+		lock:     func() func() { return func() {} },
 	}
 	return a, &out, &errOut
 }
