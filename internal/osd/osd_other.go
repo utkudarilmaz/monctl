@@ -1,4 +1,4 @@
-//go:build !darwin
+//go:build !darwin && !linux
 
 // Package osd shows the system's own brightness indicator on the screen.
 package osd

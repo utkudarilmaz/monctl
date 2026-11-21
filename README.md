@@ -171,7 +171,7 @@ The brightness keys of your keyboard can change the external monitor. This needs
 
 ### macOS
 
-The tray catches the brightness keys itself. One press moves the brightness by 5 percent. While the monitor shows another computer, the keys keep their normal job.
+The tray catches the brightness keys itself. One press moves the brightness by 5 percent and shows the system brightness indicator on the monitor. While the monitor shows another computer, the keys keep their normal job.
 
 macOS has to allow this once. At the first start it asks for the Accessibility permission. Open System Settings, Privacy and Security, Accessibility, turn monctl on, and start the tray again:
 
@@ -191,6 +191,14 @@ Bind the keys to monctl in Settings, Keyboard, View and Customise Shortcuts, Cus
 |---|---|---|
 | monctl brighter | `monctl brightness +5` | the brightness up key |
 | monctl dimmer | `monctl brightness -5` | the brightness down key |
+
+GNOME does not let a normal program show its on-screen indicator, so the Debian package ships a small GNOME Shell extension that does it for monctl. Log out and in once after installing the package, then turn it on:
+
+```sh
+gnome-extensions enable monctl@utkudarilmaz.github.io
+```
+
+The indicator shows when the tray changes the brightness, which covers the shortcuts above. Without the extension everything else still works. Installed from the archive, copy `packaging/gnome-extension` to `~/.local/share/gnome-shell/extensions/monctl@utkudarilmaz.github.io` first.
 
 While the tray runs, `monctl brightness` with a value hands the change to the tray, which is about ten times faster than doing it alone. Without the tray the command still works.
 
