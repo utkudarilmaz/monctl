@@ -16,9 +16,15 @@ Builds exist for amd64 and arm64.
 
 ```sh
 sudo apt install ./monctl_<version>_amd64.deb
+systemctl --user enable --now monctl-tray.service
 ```
 
-The package installs `/usr/bin/monctl` and the udev rule, so you need no extra setup. It also installs the docs, the licence texts of the libraries monctl uses, and the [tray service](#run-the-tray-as-a-service) in `/usr/lib/systemd/user/`.
+The first line installs `/usr/bin/monctl`, the udev rule, the docs and the licence texts of the libraries monctl uses. The second line turns on the [tray](#tray-menu), which then starts at every login. See [Run the tray as a service](#run-the-tray-as-a-service).
+
+On GNOME, two extensions are also needed, and the package does not turn them on:
+
+- the AppIndicator extension, so GNOME shows tray icons at all, see [Tray menu](#tray-menu)
+- the monctl extension, for the brightness indicator: log out and in once after the install, then run `gnome-extensions enable monctl@utkudarilmaz.github.io`
 
 ### macOS with Homebrew
 
@@ -28,23 +34,10 @@ Apple Silicon only. Homebrew builds monctl on your Mac, so macOS does not block 
 brew tap utkudarilmaz/monctl https://github.com/utkudarilmaz/monctl
 brew trust utkudarilmaz/monctl
 brew install monctl
+brew services start monctl
 ```
 
-### Turn on the tray
-
-Every package brings the tray, but it does not start by itself. Turn it on once, and it starts at every login:
-
-| Install | Run once |
-|---|---|
-| Debian package | `systemctl --user enable --now monctl-tray.service` |
-| Homebrew | `brew services start monctl` |
-
-On GNOME, two extensions are also needed, and the package does not turn them on:
-
-- the AppIndicator extension, so GNOME shows tray icons at all, see [Tray menu](#tray-menu)
-- the monctl extension, for the brightness indicator: log out and in once after the install, then run `gnome-extensions enable monctl@utkudarilmaz.github.io`
-
-More about the service is under [Run the tray as a service](#run-the-tray-as-a-service).
+The last line turns on the [tray](#tray-menu), which then starts at every login.
 
 ## Configuration
 
