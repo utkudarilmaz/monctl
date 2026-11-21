@@ -27,5 +27,9 @@ func lockMonitor() func() {
 }
 
 func lockPath() string {
-	return filepath.Join(remote.Dir(), fmt.Sprintf("monctl-%d.lock", os.Getuid()))
+	dir := remote.Dir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, fmt.Sprintf("monctl-%d.lock", os.Getuid()))
 }

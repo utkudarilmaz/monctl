@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/utkudarilmaz/monctl/internal/monitor"
+	"github.com/utkudarilmaz/monctl/internal/names"
 )
 
 const (
@@ -34,6 +35,11 @@ func (a app) wakeScreen(opts options) int {
 	if len(opts.args) > 0 || opts.json || opts.raw || opts.display != "" {
 		return a.usageError("wake takes no value and no flags")
 	}
+	if a.state != "" {
+		if name := a.host(); name != "" {
+			_, _ = fmt.Fprintln(a.stdout, names.Line(name))
+		}
+	}
 	if err := a.wake(); err != nil {
 		return a.fail(err)
 	}
@@ -49,13 +55,19 @@ func (a app) switchTo(s *session, name string) (monitor.Input, error) {
 	if err != nil {
 		return monitor.Input{}, err
 	}
-	origin, err := s.monitor.Source()
+	origin, err := a.source(s)
 	if err != nil || (origin.Known && origin.Input.ID == in.ID) {
 		return s.monitor.SetInput(in.ID)
 	}
 	if before := s.config.Inputs[in.ID].Before; len(before) > 0 {
-		if err := a.exec(before); err != nil {
+		output, err := a.exec(before)
+		if err != nil {
 			_, _ = fmt.Fprintf(a.stderr, "monctl: %v: %v\n", errBefore, err)
+		}
+		if a.remember(s, in.ID, names.Parse(output)) {
+			if named, err := s.monitor.Lookup(in.ID); err == nil {
+				in = named
+			}
 		}
 	}
 	for range switchAttempts {
@@ -81,7 +93,7 @@ func (a app) cameBack(s *session, origin uint16) bool {
 	return false
 }
 
-func runCommand(argv []string, timeout time.Duration) error {
+func runCommand(argv []string, timeout time.Duration) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -92,15 +104,16 @@ func runCommand(argv []string, timeout time.Duration) error {
 	// keeps Run waiting past the timeout.
 	cmd.WaitDelay = beforeGrace
 	err := cmd.Run()
-	switch line := lastLine(string(output)); {
+	text := string(output)
+	switch line := lastLine(text); {
 	case err == nil:
-		return nil
+		return text, nil
 	case ctx.Err() != nil:
-		return fmt.Errorf("%s did not finish in %s", argv[0], timeout)
+		return text, fmt.Errorf("%s did not finish in %s", argv[0], timeout)
 	case line != "":
-		return fmt.Errorf("%s: %s", argv[0], line)
+		return text, fmt.Errorf("%s: %s", argv[0], line)
 	default:
-		return fmt.Errorf("%s: %w", argv[0], err)
+		return text, fmt.Errorf("%s: %w", argv[0], err)
 	}
 }
 

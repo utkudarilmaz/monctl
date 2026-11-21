@@ -50,7 +50,7 @@ Inputs:
 monctl wake              # turn on the screen of this computer
 ```
 
-`wake` takes no flags. On GNOME it needs this user to be logged in at the screen. On macOS it works like moving the mouse. It is meant to be run from another computer before a switch, see [Configuration](#configuration).
+`wake` takes no flags. It first prints `computer: <name>` with the name of this computer, which the computer that asked uses as the input name. On GNOME it needs this user to be logged in at the screen. On macOS it works like moving the mouse. It is meant to be run from another computer before a switch, see [Configuration](#configuration).
 
 Add `-json` to `list`, `brightness`, `input`, or `probe` for JSON output. With more than one monitor, pick one with `-d`:
 
@@ -68,14 +68,34 @@ monctl reads `~/.config/monctl/config.json`, or `$XDG_CONFIG_HOME/monctl/config.
 ```json
 {
   "inputs": {
-    "dp": { "label": "Workstation" },
-    "usbc": { "label": "MacBook" },
+    "dp": { "label": "Desk computer" },
+    "usbc": {
+      "before": ["ssh", "-o", "BatchMode=yes", "<user>@<other-computer>", "monctl", "wake"]
+    },
     "hdmi1": { "hidden": true }
   }
 }
 ```
 
-The keys are the input ids from `monctl input`. A label replaces the name shown, and you can use it as a name: `monctl input MacBook`. A hidden input leaves the list but still works by its id. Ids the monitor does not have are ignored.
+The keys are the input ids from `monctl input`. Ids the monitor does not have are ignored.
+
+| Setting | What it does |
+|---|---|
+| `label` | The name shown for the input. You can use it as a name: `monctl input "Desk computer"`. |
+| `hidden` | Leaves the input out of the list. It still works by its id. |
+| `before` | A command monctl runs before it switches to the input, for example to wake the other computer. |
+
+### Input names
+
+You do not have to write labels. monctl finds the names like this:
+
+- The input the monitor shows is this computer, because a monitor only answers the computer it shows. That input gets the name of this computer.
+- An input with a `before` command that runs `monctl wake` on the other computer gets the name of that computer. `monctl wake` prints the name, and monctl reads it. The name is known after the first switch to that input.
+- Any other input keeps the name of its port, such as "DisplayPort".
+
+A `label` in the config always wins. A learned name that matches the id or label of another input is not used. The names monctl learned are kept in `~/.local/state/monctl/names.json`, or under `$XDG_STATE_HOME` when that variable is set. Delete the file to forget them. When you move a computer to another port, the names correct themselves.
+
+### Run a command before a switch
 
 `before` is a command monctl runs before it switches the monitor to that input. Write the program and each argument as its own word, because no shell is used. If the command fails or takes longer than 20 seconds, monctl prints a warning and switches anyway. It runs for `monctl input <name>` and for the tray, not for `monctl input -raw`.
 
@@ -85,14 +105,13 @@ Use it to wake the other computer first. Say computers A and B can reach each ot
 {
   "inputs": {
     "usbc": {
-      "label": "Computer B",
-      "before": ["ssh", "-o", "BatchMode=yes", "user@computer-b", "monctl", "wake"]
+      "before": ["ssh", "-o", "BatchMode=yes", "<user>@<computer-b>", "monctl", "wake"]
     }
   }
 }
 ```
 
-Do the same on B for the input that leads to A. If monctl is not on the PATH of the other computer, use its full path, for example `/usr/local/bin/monctl`.
+Put the user name and the host name of B in place of `<user>` and `<computer-b>`. Do the same on B for the input that leads to A. If monctl is not on the PATH of the other computer, use its full path, for example `/usr/local/bin/monctl`.
 
 Only the config file can hold a `before` command, not a monitor profile. Because it can start programs, make the file writable only by you.
 
@@ -115,8 +134,8 @@ Dimmer (-10)
 Set brightness   >  0%  25%  50%  75%  100%
 
 Send picture to
-  [x] Workstation
-  [ ] MacBook
+  [x] Desk computer
+  [ ] Laptop
 
 Quit
 ```
@@ -167,7 +186,7 @@ launchctl bootout gui/$(id -u)/io.github.utkudarilmaz.monctl.tray
 
 ## Brightness keys
 
-The brightness keys of your keyboard can change the external monitor. This needs the [tray](#tray-menu) to be running. The tray remembers the brightness, so a key press costs one short write, and quick presses or a held key are merged.
+The brightness keys of your keyboard can change the external monitor. On macOS this needs the [tray](#tray-menu) to be running. On GNOME the keys work without it, but the tray makes them faster and shows the indicator. The tray remembers the brightness, so a key press costs one short write, and quick presses or a held key are merged.
 
 ### macOS
 
@@ -179,7 +198,7 @@ macOS has to allow this once. At the first start it asks for the Accessibility p
 brew services restart monctl
 ```
 
-monctl is not signed with an Apple Developer ID, so macOS may ask again after an upgrade. Other apps that catch the same keys, such as MonitorControl, should not run at the same time.
+monctl is not signed with an Apple Developer ID, so macOS drops the permission after each upgrade. Turn it on again the same way. Other apps that catch the same keys, such as MonitorControl, should not run at the same time.
 
 The brightness slider in System Settings only works for Apple displays. monctl cannot change that.
 
@@ -285,7 +304,7 @@ The rule gives the logged in user read and write access to every I2C bus on the 
 
 ## macOS setup
 
-No setup is needed. There is no udev rule, no sudo, and no extra permission.
+No setup is needed. There is no udev rule and no sudo. Only the [brightness keys](#macos) need the Accessibility permission.
 
 monctl lists only external monitors. The built-in screen is never listed.
 

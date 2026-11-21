@@ -9,12 +9,14 @@ All notable changes to this project are written here. The format follows [Keep a
 - The tray on macOS catches the brightness keys and changes the external monitor.
 - The system brightness indicator shows when the tray changes the brightness: on macOS by itself, on GNOME through a small shell extension in the Debian package.
 - `monctl brightness` with a value hands the change to a running tray, which is much faster and merges quick changes.
+- Input names are found without a config: the active input shows the name of this computer, and an input whose `before` command runs `monctl wake` shows the name of the other computer. The names are kept in `~/.local/state/monctl/names.json`, and a config `label` wins.
 - Homebrew formula for macOS, with a service that runs the tray at login.
 
 ### Changed
 
 - `monctl input` and the tray now check that the monitor stays on the new input, and try again up to three times when it comes back. This takes about 14 seconds.
 - A failed `before` command no longer stops the switch. monctl prints a warning and switches anyway.
+- `monctl wake` first prints `computer: <name>` with the name of the computer it runs on.
 - A brightness change no longer reads the value back, which makes it about twice as fast.
 
 ### Fixed

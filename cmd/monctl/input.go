@@ -94,7 +94,7 @@ func (a app) switchInput(s *session, opts options) int {
 }
 
 func (a app) showInput(s *session, opts options) int {
-	src, err := s.monitor.Source()
+	src, err := a.source(s)
 	if err != nil {
 		return a.fail(err)
 	}

@@ -4,6 +4,7 @@ package remote
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -120,5 +121,75 @@ func TestPath(t *testing.T) {
 	info, err := os.Stat(dir)
 	if err != nil || !info.IsDir() || filepath.Base(dir) != "monctl" || info.Mode().Perm() != 0o700 {
 		t.Fatalf("Dir = %q, %v, %v; want a private monctl directory", dir, info, err)
+	}
+}
+
+func TestDirRefusesADirectoryOthersCanReplace(t *testing.T) {
+	dir := t.TempDir()
+	if !private(dir) {
+		t.Fatal("a directory of this user must be usable")
+	}
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(dir, link); err != nil {
+		t.Fatal(err)
+	}
+	if private(link) || private(filepath.Join(dir, "missing")) {
+		t.Fatal("a link or a missing directory must be refused")
+	}
+}
+
+func TestALongLineIsDropped(t *testing.T) {
+	path := socket(t)
+	stop, err := Serve(path, func(string, int) (int, int, error) {
+		t.Error("the handler must not see a long line")
+		return 0, 0, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+
+	conn, err := net.Dial("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close() }()
+	_, _ = conn.Write(append(make([]byte, 4096), "\nset 1\n"...))
+	if n, _ := conn.Read(make([]byte, 16)); n != 0 {
+		t.Fatalf("got %d bytes back for a long line", n)
+	}
+}
+
+func TestNoPathMeansNoServer(t *testing.T) {
+	if _, err := Serve("", func(string, int) (int, int, error) { return 0, 0, nil }); err == nil {
+		t.Fatal("Serve without a path must fail")
+	}
+	if _, _, err := Send("", "step", 1); !errors.Is(err, ErrNoServer) {
+		t.Fatalf("error = %v, want ErrNoServer", err)
+	}
+}
+
+func TestDirFallsBackToATempDirectoryOfThisUser(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("XDG_RUNTIME_DIR", "")
+	t.Setenv("XDG_CACHE_HOME", "")
+	t.Setenv("HOME", "")
+	t.Setenv("TMPDIR", tmp)
+
+	if got, want := Dir(), filepath.Join(tmp, fmt.Sprintf("monctl-%d", os.Getuid())); got != want {
+		t.Fatalf("Dir = %q, want %q", got, want)
+	}
+}
+
+func TestDirTightensALooseDirectory(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !private(dir) {
+		t.Fatal("a loose directory of this user must be tightened and used")
+	}
+	if info, err := os.Stat(dir); err != nil || info.Mode().Perm() != 0o700 {
+		t.Fatalf("mode = %v, %v; want 0700", info.Mode().Perm(), err)
 	}
 }
