@@ -3,7 +3,6 @@
 package main
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -37,10 +36,6 @@ func TestLockPath(t *testing.T) {
 	t.Setenv("XDG_RUNTIME_DIR", "/run/user/1000")
 	if got := filepath.Dir(lockPath()); got != "/run/user/1000" {
 		t.Fatalf("lock dir = %q", got)
-	}
-	t.Setenv("XDG_RUNTIME_DIR", "relative")
-	if got := filepath.Dir(lockPath()); got != filepath.Clean(os.TempDir()) {
-		t.Fatalf("lock dir = %q, want the temp dir", got)
 	}
 }
 

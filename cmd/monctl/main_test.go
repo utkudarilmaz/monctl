@@ -15,6 +15,7 @@ import (
 	"github.com/utkudarilmaz/monctl/internal/display"
 	"github.com/utkudarilmaz/monctl/internal/edid"
 	"github.com/utkudarilmaz/monctl/internal/profile"
+	"github.com/utkudarilmaz/monctl/internal/remote"
 	"github.com/utkudarilmaz/monctl/profiles"
 )
 
@@ -64,6 +65,8 @@ func newApp(displays []display.Display, err error) (app, *bytes.Buffer, *bytes.B
 		ddc:      []ddc.Option{ddc.WithSleep(func(time.Duration) {})},
 		pause:    func(time.Duration) {},
 		lock:     func() func() { return func() {} },
+		remote:   func(string, int) (int, int, error) { return 0, 0, remote.ErrNoServer },
+		serve:    func(trayController, func(error)) func() { return func() {} },
 	}
 	return a, &out, &errOut
 }

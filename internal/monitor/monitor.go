@@ -118,6 +118,12 @@ func (m *Monitor) SetBrightness(value int) (Level, error) {
 	return m.writeBrightness(value, level.Max)
 }
 
+// WriteBrightness sends a raw brightness without reading the monitor first.
+// The caller keeps the value inside the monitor's range.
+func (m *Monitor) WriteBrightness(value int) error {
+	return m.control.SetVCP(vcpBrightness, uint16(max(0, min(value, 0xffff))))
+}
+
 // AdjustBrightness changes the brightness by delta.
 func (m *Monitor) AdjustBrightness(delta int) (Level, error) {
 	level, err := m.Brightness()
