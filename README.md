@@ -74,14 +74,6 @@ monctl prints these commands when it cannot open a bus.
 
 The rule gives the logged in user read and write access to every I2C bus on the graphics card, not only the ones that lead to a monitor. monctl itself only opens buses that belong to a PCI graphics device. It never opens SMBus or other system buses.
 
-#### macOS setup
-
-No setup is needed. There is no udev rule and no sudo. Only the [brightness keys](#macos) need the Accessibility permission.
-
-monctl lists only external monitors. The built-in screen is never listed.
-
-monctl uses IOAVService, a private Apple API that other monitor tools for Apple Silicon also use, so a future macOS version could break it.
-
 ## Configuration
 
 monctl reads `~/.config/monctl/config.json`, or `$XDG_CONFIG_HOME/monctl/config.json` when that variable is set. The path is the same on Linux and macOS. The file is optional.
