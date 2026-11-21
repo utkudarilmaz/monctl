@@ -165,6 +165,35 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.utkudarilmaz.m
 launchctl bootout gui/$(id -u)/io.github.utkudarilmaz.monctl.tray
 ```
 
+## Brightness keys
+
+The brightness keys of your keyboard can change the external monitor. This needs the [tray](#tray-menu) to be running. The tray remembers the brightness, so a key press costs one short write, and quick presses or a held key are merged.
+
+### macOS
+
+The tray catches the brightness keys itself. One press moves the brightness by 5 percent. While the monitor shows another computer, the keys keep their normal job.
+
+macOS has to allow this once. At the first start it asks for the Accessibility permission. Open System Settings, Privacy and Security, Accessibility, turn monctl on, and start the tray again:
+
+```sh
+brew services restart monctl
+```
+
+monctl is not signed with an Apple Developer ID, so macOS may ask again after an upgrade. Other apps that catch the same keys, such as MonitorControl, should not run at the same time.
+
+The brightness slider in System Settings only works for Apple displays. monctl cannot change that.
+
+### GNOME
+
+Bind the keys to monctl in Settings, Keyboard, View and Customise Shortcuts, Custom Shortcuts:
+
+| Name | Command | Shortcut |
+|---|---|---|
+| monctl brighter | `monctl brightness +5` | the brightness up key |
+| monctl dimmer | `monctl brightness -5` | the brightness down key |
+
+While the tray runs, `monctl brightness` with a value hands the change to the tray, which is about ten times faster than doing it alone. Without the tray the command still works.
+
 ## How input switching behaves
 
 - A monitor only answers on the input it is showing. A computer can send the picture to another computer, but it cannot pull it back.
