@@ -1,8 +1,8 @@
 class Monctl < Formula
   desc "Change monitor brightness and input from the computer over DDC/CI"
   homepage "https://github.com/utkudarilmaz/monctl"
-  url "https://github.com/utkudarilmaz/monctl/archive/refs/tags/v0.2.0.tar.gz"
-  sha256 "f178d70076d52d7f3d576b289adec3ad67c0b3b9bf09366ac8a582a4b41fab45"
+  url "https://github.com/utkudarilmaz/monctl/archive/refs/tags/v0.3.0.tar.gz"
+  sha256 "55bc6d2a2b0d72c3873ef738968789ba8e2c9f7e4e52e0e8a772e345dab243ca"
   license "MIT"
   head "https://github.com/utkudarilmaz/monctl.git", branch: "main"
 
