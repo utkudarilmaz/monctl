@@ -30,7 +30,10 @@ var shortcuts = []shortcut{
 	{"monctl-dimmer", "monctl dimmer", "XF86MonBrightnessDown", "screen-brightness-down-static", fmt.Sprintf("-%d", step)},
 }
 
-var quoted = regexp.MustCompile(`'([^']*)'`)
+var (
+	quoted = regexp.MustCompile(`'([^']*)'`)
+	plain  = regexp.MustCompile(`^[A-Za-z0-9_./+-]+$`)
+)
 
 // settings runs the gsettings program with the given arguments.
 type settings func(args ...string) (string, error)
@@ -44,7 +47,7 @@ func register(run settings, program, marker string, hasBacklight bool) error {
 		return nil
 	}
 	out, err := run("get", mediaKeys, customList)
-	if err != nil {
+	if err != nil || strings.Contains(out, `"`) {
 		return nil
 	}
 	paths := list(out)
@@ -65,21 +68,22 @@ func register(run settings, program, marker string, hasBacklight bool) error {
 		}
 		for _, pair := range [][2]string{
 			{"name", s.name},
-			{"command", fmt.Sprintf("%s brightness %s", program, s.delta)},
+			{"command", fmt.Sprintf("%s brightness %s", word(program), s.delta)},
 			{"binding", s.binding},
 		} {
 			if _, err := run("set", customKey+path, pair[0], quote(pair[1])); err != nil {
 				return fmt.Errorf("cannot bind the brightness keys: %w", err)
 			}
 		}
-		if current, err := run("get", mediaKeys, s.static); err == nil && slices.Contains(list(current), s.binding) {
-			_, _ = run("set", mediaKeys, s.static, "[]")
+		if current, err := run("get", mediaKeys, s.static); err == nil && slices.Contains(list(current), s.binding) && !strings.Contains(current, `"`) {
+			rest := slices.DeleteFunc(list(current), func(key string) bool { return key == s.binding })
+			_, _ = run("set", mediaKeys, s.static, array(rest))
 		}
 		paths = append(paths, path)
 		added = true
 	}
 	if added {
-		if _, err := run("set", mediaKeys, customList, "['"+strings.Join(paths, "', '")+"']"); err != nil {
+		if _, err := run("set", mediaKeys, customList, array(paths)); err != nil {
 			return fmt.Errorf("cannot bind the brightness keys: %w", err)
 		}
 	}
@@ -87,6 +91,23 @@ func register(run settings, program, marker string, hasBacklight bool) error {
 		return nil
 	}
 	return os.WriteFile(marker, nil, 0o600)
+}
+
+// array writes items as a gsettings list of strings.
+func array(items []string) string {
+	if len(items) == 0 {
+		return "[]"
+	}
+	return "['" + strings.Join(items, "', '") + "']"
+}
+
+// word writes a path as one word of a GNOME shortcut command. GNOME splits
+// the command like a shell does and reads % as a field code.
+func word(path string) string {
+	if plain.MatchString(path) {
+		return path
+	}
+	return "'" + strings.NewReplacer("'", `'\''`, "%", "%%").Replace(path) + "'"
 }
 
 // quote writes text as a gsettings string value.

@@ -25,6 +25,9 @@ func Start(func(direction int), func() bool, func()) error {
 	if state == "" || err != nil {
 		return nil
 	}
+	if !onGnome(os.Getenv("XDG_CURRENT_DESKTOP")) || os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
+		return nil
+	}
 	if _, err := exec.LookPath("gsettings"); err != nil {
 		return nil
 	}
@@ -37,4 +40,14 @@ func gsettings(args ...string) (string, error) {
 	defer cancel()
 	out, err := exec.CommandContext(ctx, "gsettings", args...).Output()
 	return strings.TrimSpace(string(out)), err
+}
+
+// onGnome reads XDG_CURRENT_DESKTOP, a list such as "ubuntu:GNOME".
+func onGnome(desktop string) bool {
+	for _, name := range strings.Split(desktop, ":") {
+		if strings.EqualFold(name, "GNOME") {
+			return true
+		}
+	}
+	return false
 }

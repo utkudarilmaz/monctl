@@ -3,6 +3,7 @@ Description=monctl tray menu
 Documentation=https://github.com/utkudarilmaz/monctl
 PartOf=graphical-session.target
 After=graphical-session.target
+ConditionUser=!@system
 StartLimitIntervalSec=60
 StartLimitBurst=5
 

@@ -147,6 +147,30 @@ func TestRegisterDoesNothingWithoutGnomeSettings(t *testing.T) {
 	}
 }
 
+func TestRegisterLeavesAListItCannotReadAlone(t *testing.T) {
+	f, m := gnome(), marker(t)
+	f.values[mediaKeys+" "+customList] = `["/it's/", '` + guake + `']`
+
+	if err := register(f.run, "/usr/bin/monctl", m, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.sets) != 0 {
+		t.Fatalf("settings were changed: %v", f.sets)
+	}
+}
+
+func TestWord(t *testing.T) {
+	for path, want := range map[string]string{
+		"/usr/bin/monctl":       "/usr/bin/monctl",
+		"/opt/my apps/monctl":   "'/opt/my apps/monctl'",
+		"/opt/it's 100%/monctl": `'/opt/it'\''s 100%%/monctl'`,
+	} {
+		if got := word(path); got != want {
+			t.Errorf("word(%q) = %s, want %s", path, got, want)
+		}
+	}
+}
+
 func TestQuote(t *testing.T) {
 	if got := quote(`/opt/it's/monctl`); got != `'/opt/it\'s/monctl'` {
 		t.Fatalf("quote = %s", got)
@@ -158,5 +182,17 @@ func TestList(t *testing.T) {
 		if got := len(list(value)); got != want {
 			t.Errorf("list(%q) has %d items, want %d", value, got, want)
 		}
+	}
+}
+
+func TestRegisterKeepsOtherKeysGnomeHoldsForBrightness(t *testing.T) {
+	f, m := gnome(), marker(t)
+	f.values[mediaKeys+" screen-brightness-up-static"] = "['XF86MonBrightnessUp', 'F12']"
+
+	if err := register(f.run, "/usr/bin/monctl", m, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.values[mediaKeys+" screen-brightness-up-static"]; got != "['F12']" {
+		t.Fatalf("static keys = %s, want ['F12']", got)
 	}
 }

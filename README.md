@@ -24,7 +24,7 @@ The package turns on the tray for every user, so it starts at the next login. To
 systemctl --user start monctl-tray.service
 ```
 
-On a computer without a backlight of its own, the tray binds the brightness keys to monctl the first time it runs. They show under Settings, Keyboard, Custom Shortcuts.
+On a computer without a backlight of its own, the tray binds the brightness keys to monctl the first time it runs. They show under Settings, Keyboard, Custom Shortcuts. It does this once. To undo it, delete the two shortcuts there.
 
 On GNOME, two extensions are also needed, and the package does not turn them on:
 
@@ -75,7 +75,7 @@ The keys are the input ids from `monctl input`. Ids the monitor does not have ar
 | `hidden` | Leaves the input out of the list. It still works by its id. |
 | `before` | A command monctl runs before it switches to the input, for example to wake the other computer. |
 
-Next to `inputs`, `"brightnessKeys": false` keeps monctl away from the brightness keys of the keyboard.
+Next to `inputs`, `"brightnessKeys": false` keeps monctl away from the brightness keys of the keyboard. On GNOME, set it before the tray runs for the first time. Later, delete the two shortcuts in the GNOME settings instead.
 
 ### Run a command before a switch
 
@@ -186,7 +186,7 @@ gnome-extensions enable ubuntu-appindicators@ubuntu.com
 
 As a service, the tray starts at login and restarts after a crash. Picking Quit stops it until the next login.
 
-On Linux, the Debian package installs a systemd user service and turns it on for every user.
+On Linux, the Debian package installs a systemd user service and turns it on for every user. It does not run for system users such as the login screen. To turn it off for all users, run `sudo systemctl --global disable monctl-tray.service`.
 
 It starts with the graphical session. After 5 failed starts in a minute, it gives up. On GNOME it still needs the AppIndicator extension. Without it the service fails, and the status shows the install steps.
 
