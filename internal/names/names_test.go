@@ -3,6 +3,7 @@ package names
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -95,5 +96,47 @@ func TestPathUsesTheStateDirectory(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", "/somewhere/state")
 	if got := Path(); got != "/somewhere/state/monctl/names.json" {
 		t.Fatalf("Path() = %q", got)
+	}
+}
+
+func TestPathFallsBackToTheHomeDirectory(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "relative")
+	t.Setenv("HOME", "/home/someone")
+	if got := Path(); got != "/home/someone/.local/state/monctl/names.json" {
+		t.Fatalf("Path() = %q", got)
+	}
+}
+
+func TestPathIsEmptyWithoutAHome(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "")
+	t.Setenv("HOME", "")
+	if got := Path(); got != "" {
+		t.Fatalf("Path() = %q, want empty", got)
+	}
+}
+
+func TestSaveFailsWhenTheDirectoryCannotBeMade(t *testing.T) {
+	blocker := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var b Book
+	b.Set("m", "dp", "desk")
+	if err := b.Save(filepath.Join(blocker, "names.json")); err == nil {
+		t.Fatal("Save under a file must fail")
+	}
+}
+
+func TestHostIsTheShortHostName(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("macOS uses the computer name")
+	}
+	host, err := os.Hostname()
+	if err != nil {
+		t.Skip(err)
+	}
+	short, _, _ := strings.Cut(host, ".")
+	if got := Host(); got != Clean(short) {
+		t.Fatalf("Host() = %q, want %q", got, Clean(short))
 	}
 }

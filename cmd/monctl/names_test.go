@@ -2,11 +2,15 @@ package main
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/utkudarilmaz/monctl/internal/bus/bustest"
 	"github.com/utkudarilmaz/monctl/internal/config"
+	"github.com/utkudarilmaz/monctl/internal/tray"
 )
 
 func named(t *testing.T, host string) *rig {
@@ -96,5 +100,63 @@ func TestALearnedNameCannotPassForAnotherInput(t *testing.T) {
 		if strings.Contains(r.out.String(), name) {
 			t.Fatalf("output %q shows the name %q of another input", r.out, name)
 		}
+	}
+}
+
+func TestTheNameMovesWhenTheMonitorShowsAnotherInput(t *testing.T) {
+	r := named(t, "desk")
+	r.run(t, 0, "input")
+
+	r.fake.VCP[0x60] = bustest.VCP{Current: 8, Max: 14}
+	r.run(t, 0, "input")
+
+	for _, want := range []string{"Current: desk (usbc)", "DisplayPort"} {
+		if !strings.Contains(r.out.String(), want) {
+			t.Fatalf("output %q does not contain %q", r.out, want)
+		}
+	}
+}
+
+func TestALearnedNameCannotPassForALabelFromTheSettings(t *testing.T) {
+	r := named(t, "MacBook")
+	r.app.config = func() (config.Config, error) {
+		return config.Config{Inputs: map[string]config.Input{"usbc": {Label: "macbook"}}}, nil
+	}
+
+	r.run(t, 0, "input")
+
+	if !strings.Contains(r.out.String(), "Current: DisplayPort (dp)") {
+		t.Fatalf("output %q gives dp the label of another input", r.out)
+	}
+}
+
+func TestTheTrayShowsLearnedNames(t *testing.T) {
+	r := named(t, "desk")
+
+	state, err := (trayController{app: r.app}).State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []tray.Input{{ID: "dp", Label: "desk"}, {ID: "usbc", Label: "USB-C"}}
+	if state.Current != "dp" || !reflect.DeepEqual(state.Inputs, want) {
+		t.Fatalf("State = %+v, want dp current with inputs %+v", state, want)
+	}
+}
+
+func TestANameThatCannotBeSavedIsStillShown(t *testing.T) {
+	r := named(t, "desk")
+	blocker := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r.app.state = filepath.Join(blocker, "names.json")
+
+	r.run(t, 0, "input")
+
+	if !strings.Contains(r.out.String(), "Current: desk (dp)") {
+		t.Fatalf("output %q does not show the name", r.out)
+	}
+	if !strings.Contains(r.errOut.String(), "cannot remember the computer names") {
+		t.Fatalf("stderr %q does not report the save error", r.errOut)
 	}
 }
