@@ -225,8 +225,11 @@ Apple Silicon only. Homebrew builds monctl on your Mac, so macOS does not block 
 
 ```sh
 brew tap utkudarilmaz/monctl https://github.com/utkudarilmaz/monctl
+brew trust utkudarilmaz/monctl
 brew install monctl
 ```
+
+Newer Homebrew versions ask you to trust a tap that is not their own before they install from it. Skip the `brew trust` line if your Homebrew does not know the command.
 
 To run the [tray](#tray-menu) at login:
 
