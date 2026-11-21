@@ -25,10 +25,11 @@ DIST_DIR     := dist
 # cgo would tie the Linux binary to the C library of the build machine.
 GO_BUILD     := $(if $(filter linux,$(GOOS)),CGO_ENABLED=0 )$(GO) build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$$MONCTL_VERSION"
 PLAIN        := $(VERSION:v%=%)
-DEB_VERSION  := $(if $(filter 0% 1% 2% 3% 4% 5% 6% 7% 8% 9%,$(PLAIN)),$(PLAIN),0.0.0+$(PLAIN))
+# A commit hash can start with a digit, so only a dotted number counts as a version.
+DEB_VERSION  := $(if $(shell echo '$(PLAIN)' | grep -E '^[0-9]+\.[0-9]+'),$(PLAIN),0.0.0+$(PLAIN))
 STAGE        := $(DIST_DIR)/$(APPLICATION)_$(PLAIN)_$(GOOS)_$(GOARCH)
 DEB_ROOT     := $(DIST_DIR)/deb_$(GOARCH)
-PACKAGING_FILES := $(if $(filter darwin,$(GOOS)),$(wildcard packaging/macos/*.plist),packaging/linux/60-monctl.rules packaging/linux/monctl-tray.desktop)
+PACKAGING_FILES := $(if $(filter darwin,$(GOOS)),$(wildcard packaging/macos/*.plist),packaging/linux/60-monctl.rules packaging/linux/monctl-tray.service)
 
 .DEFAULT_GOAL := help
 
@@ -114,10 +115,10 @@ dist: $(STAGE)/licenses ## Build the release archive for this machine
 
 .PHONY: deb
 deb: dist ## Build the Debian package from the release archive
-	@mkdir -p $(DEB_ROOT)/DEBIAN $(DEB_ROOT)/usr/bin $(DEB_ROOT)/usr/lib/udev/rules.d $(DEB_ROOT)/usr/share/doc/$(APPLICATION) $(DEB_ROOT)/usr/share/$(APPLICATION)
+	@mkdir -p $(DEB_ROOT)/DEBIAN $(DEB_ROOT)/usr/bin $(DEB_ROOT)/usr/lib/udev/rules.d $(DEB_ROOT)/usr/share/doc/$(APPLICATION) $(DEB_ROOT)/usr/lib/systemd/user
 	@cp $(STAGE)/$(APPLICATION) $(DEB_ROOT)/usr/bin/
 	@cp packaging/linux/60-monctl.rules $(DEB_ROOT)/usr/lib/udev/rules.d/
-	@cp packaging/linux/monctl-tray.desktop $(DEB_ROOT)/usr/share/$(APPLICATION)/
+	@cp packaging/linux/monctl-tray.service $(DEB_ROOT)/usr/lib/systemd/user/
 	@cp README.md $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
 	@cp LICENSE $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/copyright
 	@cp -R $(STAGE)/licenses $(DEB_ROOT)/usr/share/doc/$(APPLICATION)/
