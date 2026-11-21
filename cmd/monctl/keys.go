@@ -8,6 +8,7 @@ import (
 	"github.com/utkudarilmaz/monctl/internal/ddc"
 	"github.com/utkudarilmaz/monctl/internal/dimmer"
 	hotkeys "github.com/utkudarilmaz/monctl/internal/keys"
+	"github.com/utkudarilmaz/monctl/internal/osd"
 	"github.com/utkudarilmaz/monctl/internal/remote"
 )
 
@@ -52,7 +53,13 @@ func serveKeys(ctl trayController, report func(error)) func() {
 			}()
 		}
 	}
-	step := func(direction int) { go func() { _, _, _ = d.StepPercent(direction * keyStep) }() }
+	step := func(direction int) {
+		go func() {
+			if current, limit, err := d.StepPercent(direction * keyStep); err == nil {
+				osd.Brightness(current, limit)
+			}
+		}()
+	}
 	if err := hotkeys.Start(step, d.Usable, missed); err != nil {
 		report(err)
 	}
