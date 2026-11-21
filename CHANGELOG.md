@@ -19,6 +19,11 @@ All notable changes to this project are written here. The format follows [Keep a
 - Debian packages for amd64 and arm64, and release archives for Linux and macOS.
 - `wake` command that turns on the screen of the computer it runs on.
 - `before` setting per input in the config: a command monctl runs before it switches to that input, for example to wake the other computer over SSH.
+- The tray can run as a systemd user service on Linux.
+
+### Changed
+
+- The Debian package ships the tray service file in place of the autostart desktop file.
 
 ### Fixed
 
