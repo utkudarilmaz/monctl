@@ -217,8 +217,6 @@ launchctl bootout gui/$(id -u)/io.github.utkudarilmaz.monctl.tray
 |---|---|---|
 | MSI MPG 274URDFW E16M | yes | DisplayPort and USB-C |
 
-On macOS, this monitor is tested over USB-C.
-
 Other monitors are added through small profile files. See [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor).
 
 ## Development
